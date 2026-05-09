@@ -1,0 +1,149 @@
+category,token,initial_tier,ruby_box_direction,rationale,total_calls,file_count,primary_file_count,legacy_file_count,repo_call_counts,fixture_focus
+global_io,respond,Preserve,Console/game IO capability,High-use public script IO and flow helper.,24070,959,200,759,dr-scripts:208;lich_repo_mirror:19288;scripts:4574,global_io_flow
+global_io,fput,Preserve,Console/game IO capability,High-use public script IO and flow helper.,22861,1597,224,1373,dr-scripts:531;lich_repo_mirror:19528;scripts:2802,global_io_flow
+global_io,echo,Preserve,Console/game IO capability,High-use public script IO and flow helper.,20512,1547,287,1260,dr-scripts:1585;lich_repo_mirror:15652;scripts:3275,global_io_flow
+vars,UserVars.,Preserve,Settings capability scoped by script/character/game identity,Broad script-facing persistence surface.,11087,449,130,319,dr-scripts:485;lich_repo_mirror:8021;scripts:2581,settings_vars_identity
+global_flow,get,Preserve,Console/game IO capability,High-use public script IO and flow helper.,8041,1491,272,1219,dr-scripts:733;lich_repo_mirror:6106;scripts:1202,global_io_flow
+settings,CharSettings[,Preserve,Settings capability scoped by script/character/game identity,Broad script-facing persistence surface.,7421,267,57,210,dr-scripts:29;lich_repo_mirror:6034;scripts:1358,settings_vars_identity
+global_flow,match,Preserve,Console/game IO capability,High-use public script IO and flow helper.,6417,576,164,412,dr-scripts:365;lich_repo_mirror:4751;scripts:1301,global_io_flow
+global_io,put,Preserve,Console/game IO capability,High-use public script IO and flow helper.,6350,939,171,768,dr-scripts:325;lich_repo_mirror:4909;scripts:1116,global_io_flow
+global_flow,pause,Preserve,Console/game IO capability,High-use public script IO and flow helper.,5337,784,201,583,dr-scripts:587;lich_repo_mirror:4433;scripts:317,global_io_flow
+global_movement,out,Preserve,Command/game IO capability,Movement helpers are legacy script ergonomics from global_defs.rb.,5169,904,204,700,dr-scripts:344;lich_repo_mirror:3733;scripts:1092,global_io_flow
+global_movement,up,Preserve,Command/game IO capability,Movement helpers are legacy script ergonomics from global_defs.rb.,3813,933,207,726,dr-scripts:370;lich_repo_mirror:2793;scripts:650,global_io_flow
+global_movement,move,Preserve,Command/game IO capability,Movement helpers are legacy script ergonomics from global_defs.rb.,3561,484,134,350,dr-scripts:342;lich_repo_mirror:2746;scripts:473,global_io_flow
+reflection_eval,send,Unsupported / Private for Box strict mode,Permissioned or denied reflection capability,"Legacy Ruby may allow it, but Box isolation should not expose private-core reach-through by default.",2564,431,122,309,dr-scripts:1009;lich_repo_mirror:1152;scripts:403,reflection_box_policy
+script_class,Script.run,Preserve,Script manager / current-script capability,Core public Script control surface.,2495,356,66,290,lich_repo_mirror:2263;scripts:232,script_identity_lifecycle
+global_lifecycle,start_script,Preserve,Script manager capability,Public lifecycle helper observed across scripts.,2433,505,65,440,dr-scripts:56;lich_repo_mirror:2111;scripts:266,script_identity_lifecycle
+global_flow,clear,Preserve,Console/game IO capability,High-use public script IO and flow helper.,2115,512,124,388,dr-scripts:64;lich_repo_mirror:1418;scripts:633,global_io_flow
+script_class,Script.current,Preserve,Script manager / current-script capability,Core public Script control surface.,2092,246,117,129,dr-scripts:12;lich_repo_mirror:792;scripts:1288,script_identity_lifecycle
+settings,Settings[,Preserve,Settings capability scoped by script/character/game identity,Broad script-facing persistence surface.,2000,113,30,83,dr-scripts:36;lich_repo_mirror:1603;scripts:361,settings_vars_identity
+global_flow,wait,Preserve,Console/game IO capability,High-use public script IO and flow helper.,1599,437,98,339,dr-scripts:105;lich_repo_mirror:1155;scripts:339,global_io_flow
+global_movement,down,Preserve,Command/game IO capability,Movement helpers are legacy script ergonomics from global_defs.rb.,1557,457,103,354,dr-scripts:117;lich_repo_mirror:1200;scripts:240,global_io_flow
+vars,Vars.,Preserve,Settings capability scoped by script/character/game identity,Broad script-facing persistence surface.,1462,175,13,162,lich_repo_mirror:1372;scripts:90,settings_vars_identity
+global_flow,waitfor,Preserve,Console/game IO capability,High-use public script IO and flow helper.,1223,344,40,304,dr-scripts:83;lich_repo_mirror:1076;scripts:64,global_io_flow
+global_io,multifput,Compat,Legacy compatibility shim,Observed corpus use; requires manual review before narrowing.,1174,219,27,192,lich_repo_mirror:921;scripts:253,manual_review
+global_flow,matchwait,Preserve,Console/game IO capability,High-use public script IO and flow helper.,970,184,8,176,dr-scripts:1;lich_repo_mirror:749;scripts:220,global_io_flow
+script_buffers_state,Script.current.vars,Warn / Deprecate,Current-script state facade,Preserve legacy behavior while routing mutation through runtime services.,956,192,93,99,dr-scripts:1;lich_repo_mirror:405;scripts:550,legacy_script_state
+hooks_watchfor,DownstreamHook.remove,Preserve,Hook/event capability,Public hook registration or watchfor API.,906,397,65,332,dr-scripts:12;lich_repo_mirror:728;scripts:166,hooks_watchfor
+global_lifecycle,before_dying,Preserve,Script manager capability,Public lifecycle helper observed across scripts.,898,644,194,450,dr-scripts:92;lich_repo_mirror:599;scripts:207,script_identity_lifecycle
+script_class,Script.running,Compat,Legacy Script facade,"Keep working, then review before blessing as future API.",854,255,101,154,dr-scripts:138;lich_repo_mirror:489;scripts:227,manual_review
+reflection_eval,eval,Unsupported / Private for Box strict mode,Permissioned or denied reflection capability,"Legacy Ruby may allow it, but Box isolation should not expose private-core reach-through by default.",716,93,46,47,dr-scripts:73;lich_repo_mirror:563;scripts:80,reflection_box_policy
+script_class_other,Script.running?,Preserve,Script manager / current-script capability,Core public Script control surface.,702,209,89,120,dr-scripts:135;lich_repo_mirror:417;scripts:150,script_identity_lifecycle
+global_lifecycle,pause_script,Preserve,Script manager capability,Public lifecycle helper observed across scripts.,672,238,39,199,dr-scripts:24;lich_repo_mirror:564;scripts:84,manual_review
+hooks_watchfor,DownstreamHook.add,Preserve,Hook/event capability,Public hook registration or watchfor API.,642,412,64,348,dr-scripts:8;lich_repo_mirror:504;scripts:130,hooks_watchfor
+storage_direct,File.open,Compat in legacy; constrained in Box,Storage capability,Too common to break in legacy mode; future isolated mode should declare storage boundaries.,531,147,36,111,dr-scripts:47;lich_repo_mirror:346;scripts:138,storage_capability
+global_flow,matchtimeout,Preserve,Console/game IO capability,High-use public script IO and flow helper.,485,125,12,113,lich_repo_mirror:432;scripts:53,manual_review
+settings,Settings.,Preserve,Settings capability scoped by script/character/game identity,Broad script-facing persistence surface.,443,87,23,64,dr-scripts:8;lich_repo_mirror:314;scripts:121,settings_vars_identity
+reflection_eval,StringProc.new,Unsupported / Private for Box strict mode,Permissioned or denied reflection capability,"Legacy Ruby may allow it, but Box isolation should not expose private-core reach-through by default.",366,46,11,35,dr-scripts:5;lich_repo_mirror:283;scripts:78,reflection_box_policy
+script_class,Script.self,Compat,Legacy Script facade,"Keep working, then review before blessing as future API.",350,77,25,52,lich_repo_mirror:247;scripts:103,manual_review
+global_lifecycle,unpause_script,Preserve,Script manager capability,Public lifecycle helper observed across scripts.,294,115,12,103,dr-scripts:10;lich_repo_mirror:265;scripts:19,manual_review
+script_class_other,Script.exists?,Preserve,Script manager / current-script capability,Core public Script control surface.,293,114,33,81,dr-scripts:5;lich_repo_mirror:236;scripts:52,script_identity_lifecycle
+global_flow,reget,Preserve,Console/game IO capability,High-use public script IO and flow helper.,239,122,47,75,dr-scripts:37;lich_repo_mirror:143;scripts:59,manual_review
+settings,CharSettings.,Preserve,Settings capability scoped by script/character/game identity,Broad script-facing persistence surface.,233,117,34,83,lich_repo_mirror:163;scripts:70,settings_vars_identity
+script_class,Script.kill,Preserve,Script manager / current-script capability,Core public Script control surface.,231,83,19,64,lich_repo_mirror:198;scripts:33,script_identity_lifecycle
+spell,Spell.active,Preserve,Spell/domain service capability,Script-facing Spell API with direct corpus use.,218,47,16,31,lich_repo_mirror:164;scripts:54,spell_domain
+vars,Vars[,Preserve,Settings capability scoped by script/character/game identity,Broad script-facing persistence surface.,215,38,15,23,lich_repo_mirror:109;scripts:106,settings_vars_identity
+script_class,Script.start,Preserve,Script manager / current-script capability,Core public Script control surface.,214,90,25,65,dr-scripts:2;lich_repo_mirror:149;scripts:63,script_identity_lifecycle
+hooks_watchfor,UpstreamHook.remove,Preserve,Hook/event capability,Public hook registration or watchfor API.,203,125,33,92,dr-scripts:3;lich_repo_mirror:145;scripts:55,hooks_watchfor
+settings,GameSettings[,Preserve,Settings capability scoped by script/character/game identity,Broad script-facing persistence surface.,178,22,7,15,dr-scripts:4;lich_repo_mirror:125;scripts:49,settings_vars_identity
+global_lifecycle,stop_script,Preserve,Script manager capability,Public lifecycle helper observed across scripts.,165,66,28,38,dr-scripts:38;lich_repo_mirror:109;scripts:18,script_identity_lifecycle
+global_movement,walk,Preserve,Command/game IO capability,Movement helpers are legacy script ergonomics from global_defs.rb.,165,87,17,70,dr-scripts:15;lich_repo_mirror:135;scripts:15,global_io_flow
+script_class,Script.pause,Preserve,Script manager / current-script capability,Core public Script control surface.,165,77,14,63,lich_repo_mirror:136;scripts:29,manual_review
+storage_direct,File.write,Compat in legacy; constrained in Box,Storage capability,Too common to break in legacy mode; future isolated mode should declare storage boundaries.,148,67,27,40,dr-scripts:1;lich_repo_mirror:78;scripts:69,storage_capability
+script_class,Script.log,Compat,Legacy Script facade,"Keep working, then review before blessing as future API.",147,12,3,9,lich_repo_mirror:139;scripts:8,manual_review
+hooks_watchfor,UpstreamHook.add,Preserve,Hook/event capability,Public hook registration or watchfor API.,135,131,35,96,dr-scripts:2;lich_repo_mirror:98;scripts:35,hooks_watchfor
+script_buffers_state,Script.current.want_downstream_xml,Warn / Deprecate,Current-script state facade,Preserve legacy behavior while routing mutation through runtime services.,109,28,13,15,lich_repo_mirror:58;scripts:51,legacy_script_state
+storage_direct,File.read,Compat in legacy; constrained in Box,Storage capability,Too common to break in legacy mode; future isolated mode should declare storage boundaries.,109,56,22,34,dr-scripts:9;lich_repo_mirror:57;scripts:43,storage_capability
+global_io,send_to_script,Compat,Legacy compatibility shim,Observed corpus use; requires manual review before narrowing.,86,47,7,40,lich_repo_mirror:65;scripts:21,manual_review
+global_io,toggle_upstream,Compat,Legacy compatibility shim,Observed corpus use; requires manual review before narrowing.,84,56,4,52,lich_repo_mirror:72;scripts:12,manual_review
+script_buffers_state,Script.current.want_downstream,Warn / Deprecate,Current-script state facade,Preserve legacy behavior while routing mutation through runtime services.,83,20,9,11,lich_repo_mirror:47;scripts:36,legacy_script_state
+script_class,Script.unpause,Preserve,Script manager / current-script capability,Core public Script control surface.,83,54,14,40,lich_repo_mirror:63;scripts:20,manual_review
+global_io,upstream_get,Compat,Legacy compatibility shim,Observed corpus use; requires manual review before narrowing.,67,40,7,33,lich_repo_mirror:54;scripts:13,manual_review
+script_class,Script.hidden,Compat,Legacy Script facade,"Keep working, then review before blessing as future API.",67,29,14,15,dr-scripts:2;lich_repo_mirror:23;scripts:42,manual_review
+spell,Spell.list,Preserve,Spell/domain service capability,Script-facing Spell API with direct corpus use.,59,17,6,11,lich_repo_mirror:32;scripts:27,spell_domain
+script_buffers_state,Script.current.downstream_buffer,Warn / Deprecate,Current-script state facade,Preserve legacy behavior while routing mutation through runtime services.,54,8,4,4,lich_repo_mirror:20;scripts:34,legacy_script_state
+global_lifecycle,undo_before_dying,Preserve,Script manager capability,Public lifecycle helper observed across scripts.,53,51,14,37,lich_repo_mirror:39;scripts:14,script_identity_lifecycle
+global_movement,multimove,Preserve,Command/game IO capability,Movement helpers are legacy script ergonomics from global_defs.rb.,53,16,3,13,lich_repo_mirror:49;scripts:4,global_io_flow
+global_io,toggle_unique,Compat,Legacy compatibility shim,Observed corpus use; requires manual review before narrowing.,51,16,6,10,lich_repo_mirror:43;scripts:8,manual_review
+script_class,Script.list,Compat,Legacy Script facade,"Keep working, then review before blessing as future API.",42,23,18,5,lich_repo_mirror:5;scripts:37,manual_review
+script_class_other,Script.paused?,Preserve,Script manager / current-script capability,Core public Script control surface.,42,30,12,18,lich_repo_mirror:24;scripts:18,manual_review
+spell,Spell.load,Preserve,Spell/domain service capability,Script-facing Spell API with direct corpus use.,36,15,7,8,lich_repo_mirror:10;scripts:26,spell_domain
+global_lifecycle,start_exec_script,Preserve,Script manager capability,Public lifecycle helper observed across scripts.,35,30,10,20,lich_repo_mirror:22;scripts:13,manual_review
+global_lifecycle,start_scripts,Preserve,Script manager capability,Public lifecycle helper observed across scripts.,34,11,3,8,dr-scripts:4;lich_repo_mirror:26;scripts:4,manual_review
+global_io,unique_get,Compat,Legacy compatibility shim,Observed corpus use; requires manual review before narrowing.,29,19,7,12,lich_repo_mirror:16;scripts:13,manual_review
+global_flow,quiet_exit,Compat,Legacy compatibility shim,Observed corpus use; requires manual review before narrowing.,27,25,4,21,lich_repo_mirror:23;scripts:4,manual_review
+hooks_watchfor,DownstreamHook.list,Preserve,Hook/event capability,Public hook registration or watchfor API.,27,16,5,11,dr-scripts:1;lich_repo_mirror:22;scripts:4,manual_review
+script_buffers_state,Script.current.silent,Warn / Deprecate,Current-script state facade,Preserve legacy behavior while routing mutation through runtime services.,27,7,3,4,lich_repo_mirror:15;scripts:12,legacy_script_state
+script_class,Script.new_downstream,Warn / Deprecate,Internal runtime adapter,Looks like script.rb plumbing; keep compatibility until instrumentation proves safe.,24,9,6,3,lich_repo_mirror:6;scripts:18,manual_review
+settings,GameSettings.,Preserve,Settings capability scoped by script/character/game identity,Broad script-facing persistence surface.,24,3,2,1,lich_repo_mirror:2;scripts:22,settings_vars_identity
+script_class,Script.list_trusted,Compat,Legacy Script facade,"Keep working, then review before blessing as future API.",22,3,2,1,lich_repo_mirror:16;scripts:6,manual_review
+vars,UserVars[,Preserve,Settings capability scoped by script/character/game identity,Broad script-facing persistence surface.,22,5,2,3,lich_repo_mirror:8;scripts:14,settings_vars_identity
+global_flow,waitforre,Preserve,Console/game IO capability,High-use public script IO and flow helper.,20,9,3,6,lich_repo_mirror:7;scripts:13,global_io_flow
+hooks_watchfor,watchfor,Preserve,Hook/event capability,Public hook registration or watchfor API.,20,2,2,0,scripts:20,hooks_watchfor
+exec_script,ExecScript.start,Compat,Legacy exec-script facade,Low-use but compatibility-sensitive execution path.,17,7,5,2,lich_repo_mirror:2;scripts:15,script_identity_lifecycle
+global_flow,regetall,Preserve,Console/game IO capability,High-use public script IO and flow helper.,17,7,3,4,lich_repo_mirror:12;scripts:5,manual_review
+global_lifecycle,force_start_script,Preserve,Script manager capability,Public lifecycle helper observed across scripts.,14,11,8,3,dr-scripts:2;lich_repo_mirror:3;scripts:9,manual_review
+spell,Spell.lock_cast,Preserve,Spell/domain service capability,Script-facing Spell API with direct corpus use.,14,11,7,4,lich_repo_mirror:6;scripts:8,spell_domain
+spell,Spell.unlock_cast,Preserve,Spell/domain service capability,Script-facing Spell API with direct corpus use.,14,11,7,4,lich_repo_mirror:6;scripts:8,spell_domain
+script_class,Script.open_file,Compat,Legacy Script facade,"Keep working, then review before blessing as future API.",13,5,5,0,scripts:13,manual_review
+storage_direct,SQLite3::Database.new,Compat in legacy; constrained in Box,Storage capability,Too common to break in legacy mode; future isolated mode should declare storage boundaries.,13,7,2,5,lich_repo_mirror:5;scripts:8,storage_capability
+storage_direct,Zlib::GzipReader.open,Compat in legacy; constrained in Box,Storage capability,Too common to break in legacy mode; future isolated mode should declare storage boundaries.,13,7,4,3,dr-scripts:1;lich_repo_mirror:7;scripts:5,storage_capability
+reflection_eval,module_eval,Unsupported / Private for Box strict mode,Permissioned or denied reflection capability,"Legacy Ruby may allow it, but Box isolation should not expose private-core reach-through by default.",12,3,2,1,lich_repo_mirror:2;scripts:10,reflection_box_policy
+script_class,Script.trust,Compat,Legacy Script facade,"Keep working, then review before blessing as future API.",12,2,2,0,scripts:12,manual_review
+script_class,Script.new_downstream_xml,Warn / Deprecate,Internal runtime adapter,Looks like script.rb plumbing; keep compatibility until instrumentation proves safe.,11,9,6,3,lich_repo_mirror:3;scripts:8,manual_review
+storage_direct,File.binread,Compat in legacy; constrained in Box,Storage capability,Too common to break in legacy mode; future isolated mode should declare storage boundaries.,11,6,4,2,dr-scripts:7;lich_repo_mirror:2;scripts:2,storage_capability
+hooks_watchfor,UpstreamHook.list,Preserve,Hook/event capability,Public hook registration or watchfor API.,10,9,7,2,dr-scripts:1;lich_repo_mirror:3;scripts:6,manual_review
+script_buffers_state,Script.current.jump_label,Warn / Deprecate,Current-script state facade,Preserve legacy behavior while routing mutation through runtime services.,10,2,2,0,scripts:10,legacy_script_state
+script_class,Script.at_exit,Preserve,Script manager / current-script capability,Core public Script control surface.,9,3,3,0,dr-scripts:1;scripts:8,manual_review
+spell,Spell.dnmsgs,Preserve,Spell/domain service capability,Script-facing Spell API with direct corpus use.,9,9,5,4,lich_repo_mirror:4;scripts:5,spell_domain
+spell,Spell.upmsgs,Preserve,Spell/domain service capability,Script-facing Spell API with direct corpus use.,9,9,5,4,lich_repo_mirror:4;scripts:5,spell_domain
+storage_direct,Sequel.sqlite,Compat in legacy; constrained in Box,Storage capability,Too common to break in legacy mode; future isolated mode should declare storage boundaries.,9,9,2,7,lich_repo_mirror:7;scripts:2,storage_capability
+global_io,unique_send_to_script,Compat,Legacy compatibility shim,Observed corpus use; requires manual review before narrowing.,8,7,2,5,lich_repo_mirror:6;scripts:2,manual_review
+hooks_watchfor,UpstreamHook.run,Unsupported / Private,Internal event dispatcher,"Runtime execution/introspection detail, not a public contract by default.",8,6,6,0,dr-scripts:4;scripts:4,manual_review
+reflection_eval,instance_eval,Unsupported / Private for Box strict mode,Permissioned or denied reflection capability,"Legacy Ruby may allow it, but Box isolation should not expose private-core reach-through by default.",8,7,6,1,lich_repo_mirror:1;scripts:7,reflection_box_policy
+script_class,Script.db,Compat,Legacy Script facade,"Keep working, then review before blessing as future API.",8,2,2,0,scripts:8,manual_review
+hooks_watchfor,DownstreamHook.run,Unsupported / Private,Internal event dispatcher,"Runtime execution/introspection detail, not a public contract by default.",7,5,5,0,dr-scripts:2;scripts:5,manual_review
+global_io,upstream_waitfor,Compat,Legacy compatibility shim,Observed corpus use; requires manual review before narrowing.,6,6,2,4,lich_repo_mirror:4;scripts:2,manual_review
+global_lifecycle,start_scripts_if_available,Preserve,Script manager capability,Public lifecycle helper observed across scripts.,6,3,3,0,dr-scripts:4;scripts:2,manual_review
+script_class,Script.clear_exit_procs,Warn / Deprecate,Internal runtime adapter,Looks like script.rb plumbing; keep compatibility until instrumentation proves safe.,6,2,2,0,scripts:6,manual_review
+script_class,Script.distrust,Compat,Legacy Script facade,"Keep working, then review before blessing as future API.",6,2,2,0,scripts:6,manual_review
+script_class,Script.new_script_output,Warn / Deprecate,Internal runtime adapter,Looks like script.rb plumbing; keep compatibility until instrumentation proves safe.,6,2,2,0,scripts:6,manual_review
+script_class_other,Script.exit!,Preserve,Script manager / current-script capability,Core public Script control surface.,6,2,2,0,scripts:6,manual_review
+spell,Spell.after_stance,Preserve,Spell/domain service capability,Script-facing Spell API with direct corpus use.,6,4,3,1,lich_repo_mirror:2;scripts:4,spell_domain
+global_io,unique_waitfor,Compat,Legacy compatibility shim,Observed corpus use; requires manual review before narrowing.,5,3,2,1,lich_repo_mirror:1;scripts:4,manual_review
+reflection_eval,public_send,Unsupported / Private for Box strict mode,Permissioned or denied reflection capability,"Legacy Ruby may allow it, but Box isolation should not expose private-core reach-through by default.",5,4,1,3,lich_repo_mirror:4;scripts:1,reflection_box_policy
+script_class_other,Script.find,Compat,Legacy Script facade,Observed Script method not yet individually classified.,5,5,0,5,lich_repo_mirror:5,manual_review
+exec_script,ExecScript.new,Compat,Legacy exec-script facade,Low-use but compatibility-sensitive execution path.,4,2,2,0,scripts:4,script_identity_lifecycle
+global_flow,matchafter,Preserve,Console/game IO capability,High-use public script IO and flow helper.,4,2,2,0,scripts:4,manual_review
+global_flow,matchbefore,Preserve,Console/game IO capability,High-use public script IO and flow helper.,4,2,2,0,scripts:4,manual_review
+global_flow,matchboth,Preserve,Console/game IO capability,High-use public script IO and flow helper.,4,2,2,0,scripts:4,manual_review
+global_io,send_scripts,Compat,Legacy compatibility shim,Observed corpus use; requires manual review before narrowing.,4,2,2,0,scripts:4,manual_review
+hooks_watchfor,Watchfor,Preserve,Hook/event capability,Public hook registration or watchfor API.,4,2,2,0,scripts:4,manual_review
+hooks_watchfor,Watchfor.new,Preserve,Hook/event capability,Public hook registration or watchfor API.,4,4,1,3,lich_repo_mirror:3;scripts:1,hooks_watchfor
+script_buffers_state,Script.current.hidden,Warn / Deprecate,Current-script state facade,Preserve legacy behavior while routing mutation through runtime services.,4,2,2,0,scripts:4,legacy_script_state
+script_buffers_state,Script.current.want_script_output,Warn / Deprecate,Current-script state facade,Preserve legacy behavior while routing mutation through runtime services.,4,2,2,0,scripts:4,legacy_script_state
+script_class,Script.new_upstream,Warn / Deprecate,Internal runtime adapter,Looks like script.rb plumbing; keep compatibility until instrumentation proves safe.,4,2,2,0,scripts:4,manual_review
+spell,Spell.new,Compat,Spell/domain service capability,Spell token needs manual review before final tiering.,4,3,2,1,lich_repo_mirror:2;scripts:2,spell_domain
+reflection_eval,class_eval,Unsupported / Private for Box strict mode,Permissioned or denied reflection capability,"Legacy Ruby may allow it, but Box isolation should not expose private-core reach-through by default.",3,3,3,0,dr-scripts:1;scripts:2,reflection_box_policy
+script_buffers_state,Script.current.want_upstream,Warn / Deprecate,Current-script state facade,Preserve legacy behavior while routing mutation through runtime services.,3,3,2,1,lich_repo_mirror:1;scripts:2,legacy_script_state
+script_class_other,Script.new,Compat,Legacy Script facade,Observed Script method not yet individually classified.,3,3,3,0,dr-scripts:1;scripts:2,manual_review
+global_lifecycle,hide_script,Preserve,Script manager capability,Public lifecycle helper observed across scripts.,2,2,2,0,scripts:2,manual_review
+hooks_watchfor,DownstreamHook.hook_sources,Unsupported / Private,Internal event dispatcher,"Runtime execution/introspection detail, not a public contract by default.",2,1,1,0,scripts:2,manual_review
+hooks_watchfor,UpstreamHook.hook_sources,Unsupported / Private,Internal event dispatcher,"Runtime execution/introspection detail, not a public contract by default.",2,1,1,0,scripts:2,manual_review
+script_class,Script.index,Compat,Legacy Script facade,"Keep working, then review before blessing as future API.",2,2,2,0,scripts:2,manual_review
+script_class,Script.namescript_incoming,Warn / Deprecate,Internal runtime adapter,Looks like script.rb plumbing; keep compatibility until instrumentation proves safe.,2,2,2,0,scripts:2,manual_review
+script_class_other,Script.name,Compat,Legacy Script facade,Observed Script method not yet individually classified.,2,2,0,2,lich_repo_mirror:2,manual_review
+spell,Spell.cast,Compat,Spell/domain service capability,Spell token needs manual review before final tiering.,2,2,2,0,scripts:2,spell_domain
+spell,Spell.class_variable_get,Compat,Spell/domain service capability,Spell token needs manual review before final tiering.,2,2,1,1,lich_repo_mirror:1;scripts:1,spell_domain
+spell,Spell.detailed,Compat,Spell/domain service capability,Spell token needs manual review before final tiering.,2,2,2,0,scripts:2,spell_domain
+spell,Spell.force_incant,Compat,Spell/domain service capability,Spell token needs manual review before final tiering.,2,2,1,1,lich_repo_mirror:1;scripts:1,spell_domain
+spell,Spell.instance_method,Compat,Spell/domain service capability,Spell token needs manual review before final tiering.,2,1,1,0,scripts:2,spell_domain
+spell,Spell.load_active,Compat,Spell/domain service capability,Spell token needs manual review before final tiering.,2,2,2,0,scripts:2,spell_domain
+spell,Spell.load_detailed,Compat,Spell/domain service capability,Spell token needs manual review before final tiering.,2,2,2,0,scripts:2,spell_domain
+spell,Spell.serialize,Compat,Spell/domain service capability,Spell token needs manual review before final tiering.,2,2,2,0,scripts:2,spell_domain
+script_class_other,Script.runs,Compat,Legacy Script facade,Observed Script method not yet individually classified.,1,1,0,1,lich_repo_mirror:1,manual_review
+spell,Spell.downmsgs,Compat,Spell/domain service capability,Spell token needs manual review before final tiering.,1,1,0,1,lich_repo_mirror:1,spell_domain
+spell,Spell.force_,Compat,Spell/domain service capability,Spell token needs manual review before final tiering.,1,1,1,0,scripts:1,spell_domain
+spell,Spell.from_h,Compat,Spell/domain service capability,Spell token needs manual review before final tiering.,1,1,0,1,lich_repo_mirror:1,spell_domain
+spell,Spell.respond_to,Compat,Spell/domain service capability,Spell token needs manual review before final tiering.,1,1,0,1,lich_repo_mirror:1,spell_domain
+spell,Spell.singleton_class,Compat,Spell/domain service capability,Spell token needs manual review before final tiering.,1,1,0,1,lich_repo_mirror:1,spell_domain
