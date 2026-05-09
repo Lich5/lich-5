@@ -3,7 +3,7 @@
 
 require 'csv'
 require 'optparse'
-require 'pathname'
+require 'pathname' # rubocop:disable Lint/RedundantRequireStatement -- standalone artifact generator uses Pathname directly.
 
 DEFAULT_ROOT = Pathname.new(__dir__).join('../../../..').realpath
 DEFAULT_INVENTORY = DEFAULT_ROOT.join('results_codex/architecture/script_rb/raw/script-corpus-file-inventory.csv')

@@ -5,7 +5,7 @@ require 'csv'
 require 'digest'
 require 'find'
 require 'optparse'
-require 'pathname'
+require 'pathname' # rubocop:disable Lint/RedundantRequireStatement -- standalone artifact generator uses Pathname directly.
 require 'time'
 
 SCRIPT_EXTENSIONS = %w[.lic .rb .cmd .wiz].freeze

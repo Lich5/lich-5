@@ -3,7 +3,7 @@
 
 require "csv"
 require "fileutils"
-require "set"
+require "set" # rubocop:disable Lint/RedundantRequireStatement -- standalone artifact generator uses Set directly.
 
 ROOT = File.expand_path("../../../..", __dir__)
 BASE = File.join(ROOT, "results_codex", "architecture", "script_rb")
@@ -80,21 +80,21 @@ FIXTURE_FOCUS = {
     Script.current Script.run Script.start Script.kill Script.running?
     Script.exists? start_script stop_script before_dying undo_before_dying
   ],
-  "global_io_flow" => %w[
+  "global_io_flow"            => %w[
     echo respond put fput get wait waitfor waitforre match matchwait clear pause
   ],
-  "settings_vars_identity" => [
+  "settings_vars_identity"    => [
     "Settings[", "Settings.", "CharSettings[", "CharSettings.",
     "GameSettings[", "GameSettings.", "Vars[", "Vars.",
     "UserVars[", "UserVars."
   ],
-  "hooks_watchfor" => %w[
+  "hooks_watchfor"            => %w[
     DownstreamHook.add DownstreamHook.remove UpstreamHook.add
     UpstreamHook.remove watchfor Watchfor.new
   ],
-  "legacy_script_state" => WARN_SCRIPT_STATE,
-  "storage_capability" => STORAGE_TOKENS,
-  "reflection_box_policy" => REFLECTION_TOKENS
+  "legacy_script_state"       => WARN_SCRIPT_STATE,
+  "storage_capability"        => STORAGE_TOKENS,
+  "reflection_box_policy"     => REFLECTION_TOKENS
 }.freeze
 
 def classify(category, token)
@@ -165,13 +165,13 @@ aggregate = {}
 rows.each do |row|
   key = [row.fetch("category"), row.fetch("token")]
   entry = aggregate[key] ||= {
-    "category" => row.fetch("category"),
-    "token" => row.fetch("token"),
-    "calls" => 0,
-    "files" => Set.new,
+    "category"      => row.fetch("category"),
+    "token"         => row.fetch("token"),
+    "calls"         => 0,
+    "files"         => Set.new,
     "primary_files" => Set.new,
-    "legacy_files" => Set.new,
-    "repos" => Hash.new(0)
+    "legacy_files"  => Set.new,
+    "repos"         => Hash.new(0)
   }
 
   count = row.fetch("count").to_i
@@ -188,17 +188,17 @@ end
 matrix_rows = aggregate.values.map do |entry|
   tier, box_direction, rationale = classify(entry["category"], entry["token"])
   {
-    "category" => entry["category"],
-    "token" => entry["token"],
-    "initial_tier" => tier,
+    "category"           => entry["category"],
+    "token"              => entry["token"],
+    "initial_tier"       => tier,
     "ruby_box_direction" => box_direction,
-    "rationale" => rationale,
-    "total_calls" => entry["calls"],
-    "file_count" => entry["files"].length,
+    "rationale"          => rationale,
+    "total_calls"        => entry["calls"],
+    "file_count"         => entry["files"].length,
     "primary_file_count" => entry["primary_files"].length,
-    "legacy_file_count" => entry["legacy_files"].length,
-    "repo_call_counts" => entry["repos"].sort.map { |repo, calls| "#{repo}:#{calls}" }.join(";"),
-    "fixture_focus" => focus_for(entry["category"], entry["token"])
+    "legacy_file_count"  => entry["legacy_files"].length,
+    "repo_call_counts"   => entry["repos"].sort.map { |repo, calls| "#{repo}:#{calls}" }.join(";"),
+    "fixture_focus"      => focus_for(entry["category"], entry["token"])
   }
 end.sort_by { |row| [-row.fetch("total_calls"), row.fetch("category"), row.fetch("token")] }
 
@@ -228,17 +228,17 @@ FIXTURE_FOCUS.each do |focus, tokens|
 
     matching.uniq { |row| [row.fetch("repo"), row.fetch("path"), token] }.first(3).each do |row|
       candidate_rows << {
-        "focus" => focus,
-        "category" => row.fetch("category"),
-        "token" => token,
-        "initial_tier" => classified[0],
-        "repo" => row.fetch("repo"),
-        "support_tier" => row.fetch("support_tier"),
-        "path" => row.fetch("path"),
+        "focus"              => focus,
+        "category"           => row.fetch("category"),
+        "token"              => token,
+        "initial_tier"       => classified[0],
+        "repo"               => row.fetch("repo"),
+        "support_tier"       => row.fetch("support_tier"),
+        "path"               => row.fetch("path"),
         "repo_relative_path" => row.fetch("repo_relative_path"),
-        "count" => row.fetch("count"),
-        "first_line" => row.fetch("first_line"),
-        "reason" => classified[2]
+        "count"              => row.fetch("count"),
+        "first_line"         => row.fetch("first_line"),
+        "reason"             => classified[2]
       }
     end
   end
@@ -262,17 +262,17 @@ end
 summary_rows = FIXTURE_FOCUS.keys.map do |focus|
   subset = candidate_rows.select { |row| row.fetch("focus") == focus }
   {
-    "focus" => focus,
+    "focus"                  => focus,
     "tokens_with_candidates" => subset.map { |row| row.fetch("token") }.uniq.length,
-    "primary_candidates" => subset.count { |row| row.fetch("support_tier") == "primary" },
-    "legacy_candidates" => subset.count { |row| row.fetch("support_tier") != "primary" }
+    "primary_candidates"     => subset.count { |row| row.fetch("support_tier") == "primary" },
+    "legacy_candidates"      => subset.count { |row| row.fetch("support_tier") != "primary" }
   }
 end
 
 example_rows = candidate_rows
-  .select { |row| row.fetch("support_tier") == "primary" }
-  .group_by { |row| row.fetch("focus") }
-  .flat_map { |_focus, group| group.first(6) }
+               .select { |row| row.fetch("support_tier") == "primary" }
+               .group_by { |row| row.fetch("focus") }
+               .flat_map { |_focus, group| group.first(6) }
 
 File.write(
   FIXTURE_CANDIDATES_MD,
