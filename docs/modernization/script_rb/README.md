@@ -22,6 +22,7 @@ runtime boundaries.
 
 - Planning docs: [Lich5/lich-5#2](https://github.com/Lich5/lich-5/pull/2)
 - Characterization specs: [Lich5/lich-5#3](https://github.com/Lich5/lich-5/pull/3)
+- Generated analysis artifacts: [Lich5/lich-5#4](https://github.com/Lich5/lich-5/pull/4)
 - Temporary upstream specs PR:
   [elanthia-online/lich-5#1349](https://github.com/elanthia-online/lich-5/pull/1349)
 
