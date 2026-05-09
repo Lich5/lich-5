@@ -14,8 +14,20 @@ runtime boundaries.
 | Corpus inventory | Drafted locally from public script repositories. |
 | API tiering | Drafted locally and summarized here for review. |
 | Contract worksheet | Drafted locally for Preserve-tier APIs. |
-| Compatibility fixtures | Planned; not implemented in this PR. |
+| Characterization specs | Open in [Lich5/lich-5#3](https://github.com/Lich5/lich-5/pull/3). |
+| Compatibility fixtures | Planned; not implemented yet. |
 | Production refactor | Not started. |
+
+## Active PRs
+
+- Planning docs: [Lich5/lich-5#2](https://github.com/Lich5/lich-5/pull/2)
+- Characterization specs: [Lich5/lich-5#3](https://github.com/Lich5/lich-5/pull/3)
+- Temporary upstream specs PR:
+  [elanthia-online/lich-5#1349](https://github.com/elanthia-online/lich-5/pull/1349)
+
+Planning docs and generated artifacts should remain in `Lich5/lich-5` until
+intentionally promoted. The upstream specs PR exists because the same fork
+branch was also opened against `elanthia-online/lich-5`.
 
 ## Scope
 
@@ -40,6 +52,11 @@ Closely related surfaces:
 on class methods, globals, direct script state fields, settings behavior,
 buffers, hooks, and Wizard compatibility behavior.
 
+Once merged, the first characterization spec set becomes a hard guardrail for
+selected script-facing behavior during modernization. As the effort expands,
+future checks should be classified deliberately as invariant, drift signal, or
+exploratory.
+
 The modernization approach is therefore:
 
 1. Document current behavior.
@@ -62,6 +79,9 @@ wrapper refactor.
 
 ## Documents
 
+- [Review Context](review-context.md)
+- [Current Status](current-status.md)
+- [Project Checklist](project-checklist.md)
 - [Phases](phases.md)
 - [Corpus Summary](corpus-summary.md)
 - [API Contract Summary](api-contract-summary.md)
