@@ -16,6 +16,7 @@ def reset_active_sessions_lifecycle!(lifecycle)
   lifecycle.instance_variable_set(:@listener_host, nil)
   lifecycle.instance_variable_set(:@listener_port, nil)
   lifecycle.instance_variable_set(:@listener_connected, false)
+  lifecycle.instance_variable_set(:@connected, true)
   lifecycle.instance_variable_set(:@session_name, nil)
   lifecycle.instance_variable_set(:@role, nil)
   lifecycle.instance_variable_set(:@started_at, nil)
@@ -74,6 +75,38 @@ RSpec.describe Lich::InternalAPI::ActiveSessions::Lifecycle do
       expect(Lich::InternalAPI::ActiveSessions).to have_received(:register_session_admitted).at_least(:once)
       expect(described_class.stop).to be(true)
       expect(Lich::InternalAPI::ActiveSessions).to have_received(:unregister_session_admitted).with(pid: Process.pid)
+    end
+
+    it 'survives a transient error in upsert and continues heartbeat ticks' do
+      heartbeat_thread = instance_double(Thread)
+      captured_block = nil
+
+      allow(Thread).to receive(:new) do |&block|
+        captured_block = block
+        heartbeat_thread
+      end
+      allow(heartbeat_thread).to receive(:join).with(0.5)
+      allow(heartbeat_thread).to receive(:alive?).and_return(false)
+      allow(heartbeat_thread).to receive(:kill)
+
+      sleep_calls = 0
+      allow(described_class).to receive(:sleep) do |_seconds|
+        sleep_calls += 1
+        described_class.instance_variable_set(:@running, false) if sleep_calls >= 3
+      end
+
+      expect(described_class.start(session_name: 'Tsetem', role: 'session', heartbeat_interval: 1)).to be(true)
+
+      upsert_calls = 0
+      allow(Lich::InternalAPI::ActiveSessions).to receive(:register_session_admitted) do
+        upsert_calls += 1
+        raise 'transient network error' if upsert_calls == 1
+
+        true
+      end
+
+      expect { captured_block.call }.not_to raise_error
+      expect(upsert_calls).to be >= 2
     end
 
     it 'still stops cleanly when enabled? would raise after startup' do
@@ -140,6 +173,51 @@ RSpec.describe Lich::InternalAPI::ActiveSessions::Lifecycle do
         described_class.update_listener(host: '127.0.0.1', port: 7000, connected: true)
         described_class.clear_listener
       end.not_to raise_error
+    end
+  end
+
+  describe '.update_connected' do
+    it 'updates current session connected state without unregistering it' do
+      described_class.instance_variable_set(:@started, true)
+      described_class.instance_variable_set(:@feature_enabled, true)
+      described_class.instance_variable_set(:@session_name, 'Tsetem')
+      described_class.instance_variable_set(:@role, 'session')
+      described_class.instance_variable_set(:@started_at, 1_700_000_000)
+
+      described_class.update_connected(false)
+
+      expect(Lich::InternalAPI::ActiveSessions).to have_received(:register_session_admitted).with(
+        hash_including(
+          session_name: 'Tsetem',
+          connected: false
+        )
+      )
+      expect(Lich::InternalAPI::ActiveSessions).not_to have_received(:unregister_session_admitted)
+    end
+
+    it 'keeps detachable sessions disconnected when the game connection is down' do
+      described_class.instance_variable_set(:@started, true)
+      described_class.instance_variable_set(:@feature_enabled, true)
+      described_class.instance_variable_set(:@session_name, 'Tsetem')
+      described_class.instance_variable_set(:@role, 'detachable')
+      described_class.instance_variable_set(:@started_at, 1_700_000_000)
+
+      described_class.update_listener(host: '127.0.0.1', port: 7000, connected: true)
+      described_class.update_connected(false)
+
+      expect(Lich::InternalAPI::ActiveSessions).to have_received(:register_session_admitted).with(
+        hash_including(
+          listener_host: '127.0.0.1',
+          listener_port: 7000,
+          connected: false
+        )
+      )
+    end
+
+    it 'does not mutate connection state before lifecycle start' do
+      described_class.update_connected(false)
+
+      expect(described_class.current_payload).to include(connected: true)
     end
   end
 
