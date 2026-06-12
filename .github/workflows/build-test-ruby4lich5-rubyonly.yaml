@@ -394,7 +394,7 @@ jobs:
             'puts "gtk3 gem=#{gtk3_version}"'
             'abort "wrong gtk3 gem #{gtk3_version}" unless gtk3_version == ENV.fetch("GTK3_GEM_VERSION")'
             ''
-            'Gtk.init([])'
+            'Gtk.init'
             'puts "GTK.init OK"'
           ) -join [Environment]::NewLine
           $utf8NoBom = New-Object System.Text.UTF8Encoding $false
