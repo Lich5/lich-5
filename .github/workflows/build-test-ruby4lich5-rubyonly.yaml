@@ -384,8 +384,23 @@ jobs:
             exit 1
           }
 
-          $rb = 'require "gtk3"; require "sqlite3"; puts "ruby=#{RUBY_VERSION}"; puts "gtk3 gem=#{Gem.loaded_specs["gtk3"].version}"; abort "wrong gtk3 gem" unless Gem.loaded_specs["gtk3"].version.to_s == ENV["GTK3_GEM_VERSION"]; Gtk.init([]); puts "GTK.init OK"'
-          & $rubyExe -e $rb
+          $validationScript = Join-Path $env:RUNNER_TEMP 'validate-gtk-runtime.rb'
+          $validationCode = @(
+            'require "gtk3"'
+            'require "sqlite3"'
+            ''
+            'puts "ruby=#{RUBY_VERSION}"'
+            'gtk3_version = Gem.loaded_specs.fetch("gtk3").version.to_s'
+            'puts "gtk3 gem=#{gtk3_version}"'
+            'abort "wrong gtk3 gem #{gtk3_version}" unless gtk3_version == ENV.fetch("GTK3_GEM_VERSION")'
+            ''
+            'Gtk.init([])'
+            'puts "GTK.init OK"'
+          ) -join [Environment]::NewLine
+          $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+          [System.IO.File]::WriteAllText($validationScript, $validationCode, $utf8NoBom)
+
+          & $rubyExe $validationScript
           if ($LASTEXITCODE -ne 0) {
             Write-Error "Ruby runtime validation failed: gtk3 ${env:GTK3_GEM_VERSION} and sqlite3 did not load and initialize cleanly."
             exit $LASTEXITCODE
