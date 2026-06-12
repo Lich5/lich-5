@@ -168,6 +168,7 @@ jobs:
             "$base/mingw-w64-ucrt-x86_64-pkgconf-1~2.4.3-1-any.pkg.tar.zst",
             "$base/mingw-w64-ucrt-x86_64-glib2-2.84.4-1-any.pkg.tar.zst",
             "$base/mingw-w64-ucrt-x86_64-gobject-introspection-1.84.0-2-any.pkg.tar.zst",
+            "$base/mingw-w64-ucrt-x86_64-gobject-introspection-runtime-1.84.0-2-any.pkg.tar.zst",
             "$base/mingw-w64-ucrt-x86_64-cairo-1.18.4-4-any.pkg.tar.zst",
             "$base/mingw-w64-ucrt-x86_64-gdk-pixbuf2-2.44.6-1-any.pkg.tar.zst",
             "$base/mingw-w64-ucrt-x86_64-gtk3-3.24.50-1-any.pkg.tar.zst",
@@ -257,6 +258,8 @@ jobs:
           }
 
           Write-Host "::group::Installed MSYS2 packages"
+          & $pacman -Q mingw-w64-ucrt-x86_64-gobject-introspection
+          & $pacman -Q mingw-w64-ucrt-x86_64-gobject-introspection-runtime
           & $pacman -Q
           Write-Host "::endgroup::"
 
