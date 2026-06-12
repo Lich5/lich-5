@@ -150,6 +150,39 @@ jobs:
             exit $LASTEXITCODE
           }
 
+      - name: Pin MSYS2 GTK3 native stack for gtk3 gem 4.3.3
+        shell: powershell
+        env:
+          PATH: ${{ steps.vendormsys.outputs.path }}
+          RI_DEVKIT: ""
+        run: |
+          $msys = 'C:\Ruby4Lich5\msys64'
+          $pacman = Join-Path $msys 'usr\bin\pacman.exe'
+          if (!(Test-Path $pacman)) {
+            Write-Error "MSYS2 native stack pin failed: pacman not found at $pacman."
+            exit 1
+          }
+
+          $base = 'https://repo.msys2.org/mingw/ucrt64'
+          $packages = @(
+            "$base/mingw-w64-ucrt-x86_64-glib2-2.84.4-1-any.pkg.tar.zst",
+            "$base/mingw-w64-ucrt-x86_64-gobject-introspection-1.84.0-2-any.pkg.tar.zst",
+            "$base/mingw-w64-ucrt-x86_64-cairo-1.18.4-4-any.pkg.tar.zst",
+            "$base/mingw-w64-ucrt-x86_64-gdk-pixbuf2-2.44.6-1-any.pkg.tar.zst",
+            "$base/mingw-w64-ucrt-x86_64-gtk3-3.24.50-1-any.pkg.tar.zst",
+            "$base/mingw-w64-ucrt-x86_64-harfbuzz-14.2.1-1-any.pkg.tar.zst",
+            "$base/mingw-w64-ucrt-x86_64-pango-1.57.1-1-any.pkg.tar.zst"
+          )
+
+          Write-Host "Pinning MSYS2 native GTK stack for ruby-gnome gtk3 ${env:GTK3_GEM_VERSION}."
+          Write-Host "The first run proved glib2 ${env:GTK3_GEM_VERSION} does not compile against MSYS2 GLib 2.88.1; this pins GLib to 2.84.4."
+
+          & $pacman -U --needed --noconfirm @packages
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "MSYS2 native stack pin failed: pacman could not install the pinned GTK3/GLib package set."
+            exit $LASTEXITCODE
+          }
+
       - name: Dependency validation (toolchain, pkg-config, GTK3)
         shell: powershell
         env:
@@ -193,6 +226,28 @@ jobs:
             }
             $version = (& $pkgc --modversion $pkg)
             Write-Host "$pkg $version"
+          }
+
+          $expected = @{
+            'glib-2.0' = '2.84.4'
+            'gobject-2.0' = '2.84.4'
+            'gio-2.0' = '2.84.4'
+            'gobject-introspection-1.0' = '1.84.0'
+            'cairo' = '1.18.4'
+            'cairo-gobject' = '1.18.4'
+            'gdk-pixbuf-2.0' = '2.44.6'
+            'gtk+-3.0' = '3.24.50'
+            'harfbuzz' = '14.2.1'
+            'pango' = '1.57.1'
+            'pangocairo' = '1.57.1'
+          }
+
+          foreach ($pkg in $expected.Keys) {
+            $actual = (& $pkgc --modversion $pkg)
+            if ($actual -ne $expected[$pkg]) {
+              Write-Error "Dependency validation failed: expected $pkg $($expected[$pkg]) but pkg-config reports $actual. The pinned GTK3 native stack did not take effect."
+              exit 1
+            }
           }
 
           Write-Host "::group::Installed MSYS2 packages"
