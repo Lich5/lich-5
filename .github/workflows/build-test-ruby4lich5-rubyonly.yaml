@@ -165,6 +165,7 @@ jobs:
 
           $base = 'https://repo.msys2.org/mingw/ucrt64'
           $packages = @(
+            "$base/mingw-w64-ucrt-x86_64-pkgconf-1~2.4.3-1-any.pkg.tar.zst",
             "$base/mingw-w64-ucrt-x86_64-glib2-2.84.4-1-any.pkg.tar.zst",
             "$base/mingw-w64-ucrt-x86_64-gobject-introspection-1.84.0-2-any.pkg.tar.zst",
             "$base/mingw-w64-ucrt-x86_64-cairo-1.18.4-4-any.pkg.tar.zst",
@@ -177,7 +178,7 @@ jobs:
           Write-Host "Pinning MSYS2 native GTK stack for ruby-gnome gtk3 ${env:GTK3_GEM_VERSION}."
           Write-Host "The first run proved glib2 ${env:GTK3_GEM_VERSION} does not compile against MSYS2 GLib 2.88.1; this pins GLib to 2.84.4."
 
-          & $pacman -U --needed --noconfirm @packages
+          & $pacman -U --noconfirm @packages
           if ($LASTEXITCODE -ne 0) {
             Write-Error "MSYS2 native stack pin failed: pacman could not install the pinned GTK3/GLib package set."
             exit $LASTEXITCODE
@@ -203,6 +204,11 @@ jobs:
 
           & $pkgc --version
           if ($LASTEXITCODE -ne 0) { Write-Error "Dependency validation failed: vendored pkg-config could not execute."; exit 1 }
+          $pkgcVersion = (& $pkgc --version)
+          if ($pkgcVersion -ne '2.4.3') {
+            Write-Error "Dependency validation failed: expected pkgconf/pkg-config 2.4.3 but pkg-config reports $pkgcVersion. The pinned build surface did not take effect."
+            exit 1
+          }
 
           $checks = @(
             'gtk+-3.0',
