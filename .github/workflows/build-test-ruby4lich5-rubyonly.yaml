@@ -114,7 +114,9 @@ jobs:
 
           "PATH_VENDOR_MSYS=$joined" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
           "path=$joined" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
-          "RI_DEVKIT=" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          "RI_DEVKIT=$msys" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          "MSYSTEM=UCRT64" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          "MSYSTEM_PREFIX=/ucrt64" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Initialize MSYS2 GTK3/sqlite toolchain
         shell: powershell
@@ -266,14 +268,17 @@ jobs:
           "CC=$gcc" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
           "PKG_CONFIG=$pkgc" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
           "PKG_CONFIG_PATH=$($msys)\ucrt64\lib\pkgconfig;$($msys)\lib\pkgconfig" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          "MSYS2_ROOT=$msys" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Install sqlite3 native gem
         shell: powershell
         env:
           PATH: ${{ steps.vendormsys.outputs.path }}
-          RI_DEVKIT: ""
-          CC: gcc
-          PKG_CONFIG: pkg-config
+          RI_DEVKIT: C:\Ruby4Lich5\msys64
+          MSYSTEM: UCRT64
+          MSYSTEM_PREFIX: /ucrt64
+          CC: C:\Ruby4Lich5\msys64\ucrt64\bin\gcc.exe
+          PKG_CONFIG: C:\Ruby4Lich5\msys64\ucrt64\bin\pkg-config.exe
         run: |
           $msys = 'C:\Ruby4Lich5\msys64'
           gem install sqlite3 --platform ruby -- `
@@ -289,12 +294,34 @@ jobs:
         shell: powershell
         env:
           PATH: ${{ steps.vendormsys.outputs.path }}
-          RI_DEVKIT: ""
-          CC: gcc
-          PKG_CONFIG: pkg-config
+          RI_DEVKIT: C:\Ruby4Lich5\msys64
+          MSYSTEM: UCRT64
+          MSYSTEM_PREFIX: /ucrt64
+          CC: C:\Ruby4Lich5\msys64\ucrt64\bin\gcc.exe
+          PKG_CONFIG: C:\Ruby4Lich5\msys64\ucrt64\bin\pkg-config.exe
         run: |
           Write-Host "Installing gtk3 gem version ${env:GTK3_GEM_VERSION}."
           Write-Host "This intentionally pins before ruby-gnome 4.3.4, where the GTK4-oriented GC repair from ruby-gnome issue 1688 entered the release line."
+          Write-Host "::group::GTK3 gem build preflight"
+          Write-Host "RI_DEVKIT=$env:RI_DEVKIT"
+          Write-Host "MSYSTEM=$env:MSYSTEM"
+          Write-Host "MSYSTEM_PREFIX=$env:MSYSTEM_PREFIX"
+          Write-Host "CC=$env:CC"
+          Write-Host "PKG_CONFIG=$env:PKG_CONFIG"
+          Write-Host "PKG_CONFIG_PATH=$env:PKG_CONFIG_PATH"
+          where.exe gcc
+          where.exe pkg-config
+          & $env:PKG_CONFIG --modversion gobject-2.0
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "GTK3 gem build preflight failed: vendored pkg-config cannot resolve gobject-2.0."
+            exit 1
+          }
+          & $env:PKG_CONFIG --modversion gthread-2.0
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "GTK3 gem build preflight failed: vendored pkg-config cannot resolve gthread-2.0."
+            exit 1
+          }
+          Write-Host "::endgroup::"
 
           gem install gtk3 --version "${env:GTK3_GEM_VERSION}" --no-document
           if ($LASTEXITCODE -ne 0) {
@@ -306,9 +333,11 @@ jobs:
         shell: powershell
         env:
           PATH: ${{ steps.vendormsys.outputs.path }}
-          RI_DEVKIT: ""
-          CC: gcc
-          PKG_CONFIG: pkg-config
+          RI_DEVKIT: C:\Ruby4Lich5\msys64
+          MSYSTEM: UCRT64
+          MSYSTEM_PREFIX: /ucrt64
+          CC: C:\Ruby4Lich5\msys64\ucrt64\bin\gcc.exe
+          PKG_CONFIG: C:\Ruby4Lich5\msys64\ucrt64\bin\pkg-config.exe
         run: |
           gem install ascii_charts ffi json kramdown logger os ostruct redis sequel terminal-table tzinfo tzinfo-data webrick --no-document
           if ($LASTEXITCODE -ne 0) {
@@ -321,7 +350,9 @@ jobs:
         shell: powershell
         env:
           PATH: ${{ steps.vendormsys.outputs.path }}
-          RI_DEVKIT: ""
+          RI_DEVKIT: C:\Ruby4Lich5\msys64
+          MSYSTEM: UCRT64
+          MSYSTEM_PREFIX: /ucrt64
         run: |
           $msys = 'C:\Ruby4Lich5\msys64'
           $env:Path = "$msys\ucrt64\bin;$msys\usr\bin;$env:Path"
