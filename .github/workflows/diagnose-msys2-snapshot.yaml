@@ -1,4 +1,4 @@
-name: diagnose MSYS2 snapshot
+name: diagnose MSYS2 native stack
 
 on:
   workflow_dispatch:
@@ -7,6 +7,14 @@ on:
         description: "MSYS2 base archive date to test, for example 20250830 or 20250622."
         required: false
         default: "20250830"
+      msys-source:
+        description: "Use a dated MSYS2 base archive or the current latest MSYS2 base archive."
+        required: false
+        default: "dated"
+        type: choice
+        options:
+          - "dated"
+          - "current"
       mode:
         description: "query-only stops after package DB inspection; install-and-smoke installs GTK stack and tests gtk3."
         required: false
@@ -29,7 +37,7 @@ permissions:
 
 jobs:
   diagnose_msys2_snapshot:
-    name: Diagnose MSYS2 snapshot package universe
+    name: Diagnose MSYS2 package universe
     runs-on: windows-latest
     timeout-minutes: 60
 
@@ -38,9 +46,15 @@ jobs:
         shell: powershell
         run: |
           $snapshotDate = '${{ inputs.snapshot-date }}'
+          $msysSource = '${{ inputs.msys-source }}'
           $mode = '${{ inputs.mode }}'
           $gtk3GemVersion = '${{ inputs.gtk3-gem-version }}'
           $rubyInstallerVersion = '${{ inputs.ruby-installer-version }}'
+
+          if ($msysSource -notin @('dated', 'current')) {
+            Write-Error "msys-source must be 'dated' or 'current'; received '$msysSource'."
+            exit 1
+          }
 
           if ($snapshotDate -notmatch '^\d{8}$') {
             Write-Error "snapshot-date must be YYYYMMDD, for example 20250830; received '$snapshotDate'."
@@ -58,18 +72,25 @@ jobs:
           }
 
           "MSYS2_SNAPSHOT_DATE=$snapshotDate" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          "MSYS2_SOURCE=$msysSource" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
           "DIAG_MODE=$mode" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
           "GTK3_GEM_VERSION=$gtk3GemVersion" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
           "RUBY_INSTALLER_VERSION=$rubyInstallerVersion" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
 
-      - name: Download and extract dated MSYS2 base archive
+      - name: Download and extract MSYS2 base archive
         shell: powershell
         run: |
           $snapshotDate = $env:MSYS2_SNAPSHOT_DATE
+          $msysSource = $env:MSYS2_SOURCE
           $msysParent = 'C:\Ruby4Lich5'
           $msys = Join-Path $msysParent 'msys64'
-          $archive = Join-Path $env:RUNNER_TEMP "msys2-base-x86_64-$snapshotDate.tar.zst"
-          $url = "https://repo.msys2.org/distrib/x86_64/msys2-base-x86_64-$snapshotDate.tar.zst"
+          if ($msysSource -eq 'current') {
+            $archiveName = 'msys2-base-x86_64-latest.tar.zst'
+          } else {
+            $archiveName = "msys2-base-x86_64-$snapshotDate.tar.zst"
+          }
+          $archive = Join-Path $env:RUNNER_TEMP $archiveName
+          $url = "https://repo.msys2.org/distrib/x86_64/$archiveName"
 
           if (Test-Path $msysParent) {
             Remove-Item $msysParent -Recurse -Force
@@ -87,7 +108,7 @@ jobs:
           if (!(Test-Path $sevenZip)) {
             $sevenZip = '7z.exe'
           }
-          $extractWork = Join-Path $env:RUNNER_TEMP "msys2-base-$snapshotDate"
+          $extractWork = Join-Path $env:RUNNER_TEMP "msys2-base-$msysSource-$snapshotDate"
           if (Test-Path $extractWork) {
             Remove-Item $extractWork -Recurse -Force
           }
@@ -114,13 +135,13 @@ jobs:
           }
 
           if (!(Test-Path (Join-Path $msys 'usr\bin\pacman.exe'))) {
-            Write-Error "MSYS2 snapshot extraction failed: pacman.exe not found under $msys."
+            Write-Error "MSYS2 base extraction failed: pacman.exe not found under $msys."
             exit 1
           }
 
           "MSYS2_ROOT=$msys" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
 
-      - name: Build sanitized PATH for snapshot MSYS2
+      - name: Build sanitized PATH for MSYS2
         id: snapshotpath
         shell: powershell
         run: |
@@ -141,13 +162,13 @@ jobs:
           $snapshotPath = @("$msys\ucrt64\bin", "$msys\usr\bin") + $filtered
           $joined = ($snapshotPath -join ';')
 
-          "PATH_SNAPSHOT_MSYS=$joined" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          "PATH_DIAG_MSYS=$joined" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
           "path=$joined" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
           "RI_DEVKIT=$msys" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
           "MSYSTEM=UCRT64" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
           "MSYSTEM_PREFIX=/ucrt64" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
 
-      - name: Initialize snapshot MSYS2 keyring
+      - name: Initialize MSYS2 keyring
         shell: powershell
         env:
           PATH: ${{ steps.snapshotpath.outputs.path }}
@@ -172,20 +193,42 @@ jobs:
             exit 1
           }
 
-          Write-Host "Initializing MSYS2 keyring for extracted snapshot through bash."
+          Write-Host "Initializing MSYS2 keyring for extracted base archive through bash."
           & $bash -lc 'pacman-key --init'
           if ($LASTEXITCODE -ne 0) {
-            Write-Error "Snapshot keyring initialization failed: pacman-key --init exited with $LASTEXITCODE."
+            Write-Error "MSYS2 keyring initialization failed: pacman-key --init exited with $LASTEXITCODE."
             exit $LASTEXITCODE
           }
 
           & $bash -lc 'pacman-key --populate msys2'
           if ($LASTEXITCODE -ne 0) {
-            Write-Error "Snapshot keyring initialization failed: pacman-key --populate msys2 exited with $LASTEXITCODE."
+            Write-Error "MSYS2 keyring initialization failed: pacman-key --populate msys2 exited with $LASTEXITCODE."
             exit $LASTEXITCODE
           }
 
-      - name: Query bundled snapshot package universe
+      - name: Refresh current MSYS2 package universe
+        if: ${{ inputs.msys-source == 'current' }}
+        shell: powershell
+        env:
+          PATH: ${{ steps.snapshotpath.outputs.path }}
+          MSYSTEM: UCRT64
+        run: |
+          $msys = $env:MSYS2_ROOT
+          $env:Path = "$msys\ucrt64\bin;$msys\usr\bin;$env:Path"
+          $bash = Join-Path $msys 'usr\bin\bash.exe'
+          if (!(Test-Path $bash)) {
+            Write-Error "Current MSYS2 refresh failed: bash.exe not found at $bash."
+            exit 1
+          }
+
+          Write-Host "Refreshing current MSYS2 package databases and base packages."
+          & $bash -lc 'pacman -Syu --noconfirm'
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Current MSYS2 refresh failed: pacman -Syu exited with $LASTEXITCODE."
+            exit $LASTEXITCODE
+          }
+
+      - name: Query MSYS2 package universe
         shell: powershell
         env:
           PATH: ${{ steps.snapshotpath.outputs.path }}
@@ -195,7 +238,8 @@ jobs:
           $pacman = Join-Path $msys 'usr\bin\pacman.exe'
           $env:Path = "$msys\ucrt64\bin;$msys\usr\bin;$env:Path"
 
-          Write-Host "::group::Snapshot identity"
+          Write-Host "::group::MSYS2 identity"
+          Write-Host "msys-source=$env:MSYS2_SOURCE"
           Write-Host "snapshot-date=$env:MSYS2_SNAPSHOT_DATE"
           Write-Host "mode=$env:DIAG_MODE"
           Write-Host "ruby-installer-version=$env:RUBY_INSTALLER_VERSION"
@@ -204,7 +248,7 @@ jobs:
           Write-Host "RI_DEVKIT=$env:RI_DEVKIT"
           Write-Host "MSYSTEM=$env:MSYSTEM"
           Write-Host "MSYSTEM_PREFIX=$env:MSYSTEM_PREFIX"
-          Write-Host "PATH_SNAPSHOT_MSYS=$env:PATH_SNAPSHOT_MSYS"
+          Write-Host "PATH_DIAG_MSYS=$env:PATH_DIAG_MSYS"
           & $pacman --version
           Write-Host "::endgroup::"
 
@@ -252,7 +296,7 @@ jobs:
             }
           }
           if ($pacmanExit -ne 0 -and -not $allEntries) {
-            Write-Error "Snapshot package DB query failed: pacman -Sl ucrt64 exited with $pacmanExit and produced no package entries."
+            Write-Error "MSYS2 package DB query failed: pacman -Sl ucrt64 exited with $pacmanExit and produced no package entries."
             exit $pacmanExit
           }
 
@@ -277,7 +321,7 @@ jobs:
         run: |
           Write-Host "query-only mode complete. Review the package universe above before choosing install-and-smoke."
 
-      - name: Install GTK3 native stack from snapshot
+      - name: Install GTK3 native stack from MSYS2
         if: ${{ inputs.mode == 'install-and-smoke' }}
         shell: powershell
         env:
@@ -290,7 +334,11 @@ jobs:
           $pacman = Join-Path $msys 'usr\bin\pacman.exe'
           $env:Path = "$msys\ucrt64\bin;$msys\usr\bin;$env:Path"
 
-          Write-Host "Installing from bundled snapshot package DB. Intentionally not running pacman -Sy or pacman -Syu."
+          if ($env:MSYS2_SOURCE -eq 'current') {
+            Write-Host "Installing from current MSYS2 package DB after pacman -Syu refresh."
+          } else {
+            Write-Host "Installing from bundled snapshot package DB. Intentionally not running pacman -Sy or pacman -Syu."
+          }
           & $pacman -S --needed --noconfirm `
             mingw-w64-ucrt-x86_64-gcc `
             mingw-w64-ucrt-x86_64-gcc-libs `
@@ -302,7 +350,7 @@ jobs:
             mingw-w64-ucrt-x86_64-gtk3 `
             make
           if ($LASTEXITCODE -ne 0) {
-            Write-Error "Snapshot install failed: pacman could not install the GTK3 native stack from the dated package DB."
+            Write-Error "MSYS2 install failed: pacman could not install the GTK3 native stack from the selected package DB."
             exit $LASTEXITCODE
           }
 
@@ -373,7 +421,7 @@ jobs:
           "RUBY_ROOT=$rubyRoot" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
           "RUBY_EXE=$($rubyExe.FullName)" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
 
-      - name: Install and smoke gtk3 gem against snapshot
+      - name: Install and smoke gtk3 gem against MSYS2
         if: ${{ inputs.mode == 'install-and-smoke' }}
         shell: powershell
         env:
@@ -389,7 +437,7 @@ jobs:
           $rubyRoot = $env:RUBY_ROOT
           $rubyExe = $env:RUBY_EXE
           if (!(Test-Path $rubyExe)) {
-            Write-Error "Snapshot smoke failed: RUBY_EXE does not exist: $rubyExe"
+            Write-Error "MSYS2 smoke failed: RUBY_EXE does not exist: $rubyExe"
             exit 1
           }
           $pathEntries = $env:Path -split ';' | Where-Object {
@@ -397,7 +445,8 @@ jobs:
           }
           $env:Path = (@("$rubyRoot\bin", "$msys\ucrt64\bin", "$msys\usr\bin") + $pathEntries) -join ';'
 
-          Write-Host "::group::Snapshot build surface"
+          Write-Host "::group::MSYS2 build surface"
+          Write-Host "MSYS2_SOURCE=$env:MSYS2_SOURCE"
           Write-Host "RI_DEVKIT=$env:RI_DEVKIT"
           Write-Host "MSYSTEM=$env:MSYSTEM"
           Write-Host "MSYSTEM_PREFIX=$env:MSYSTEM_PREFIX"
@@ -416,13 +465,13 @@ jobs:
             --with-sqlite3-include="$msys/ucrt64/include" `
             --with-sqlite3-lib="$msys/ucrt64/lib"
           if ($LASTEXITCODE -ne 0) {
-            Write-Error "Snapshot smoke failed: sqlite3 native gem could not compile."
+            Write-Error "MSYS2 smoke failed: sqlite3 native gem could not compile."
             exit $LASTEXITCODE
           }
 
           & $rubyExe -S gem install gtk3 --version "$env:GTK3_GEM_VERSION" --no-document
           if ($LASTEXITCODE -ne 0) {
-            Write-Error "Snapshot smoke failed: gtk3 $env:GTK3_GEM_VERSION could not install."
+            Write-Error "MSYS2 smoke failed: gtk3 $env:GTK3_GEM_VERSION could not install."
             exit $LASTEXITCODE
           }
 
@@ -541,8 +590,8 @@ jobs:
             Write-Host "::notice::ntldd.exe was not available in the snapshot PATH."
           }
 
-          & $rubyExe -e "require 'sqlite3'; require 'gtk3'; Gtk.init; puts 'snapshot GTK smoke OK'"
+          & $rubyExe -e "require 'sqlite3'; require 'gtk3'; Gtk.init; puts 'MSYS2 GTK smoke OK'"
           if ($LASTEXITCODE -ne 0) {
-            Write-Error "Snapshot smoke failed: Ruby could not require sqlite3/gtk3 and initialize GTK."
+            Write-Error "MSYS2 smoke failed: Ruby could not require sqlite3/gtk3 and initialize GTK."
             exit $LASTEXITCODE
           }
