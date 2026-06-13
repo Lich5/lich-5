@@ -143,20 +143,31 @@ jobs:
         run: |
           $msys = $env:MSYS2_ROOT
           $env:Path = "$msys\ucrt64\bin;$msys\usr\bin;$env:Path"
-          $pacmanKey = Join-Path $msys 'usr\bin\pacman-key.exe'
-          if (!(Test-Path $pacmanKey)) {
-            Write-Error "Snapshot keyring initialization failed: pacman-key.exe not found at $pacmanKey."
+          $bash = Join-Path $msys 'usr\bin\bash.exe'
+          $pacmanKeyScript = Join-Path $msys 'usr\bin\pacman-key'
+          $pacmanKeyExe = Join-Path $msys 'usr\bin\pacman-key.exe'
+
+          if (!(Test-Path $bash)) {
+            Write-Error "Snapshot keyring initialization failed: bash.exe not found at $bash."
             exit 1
           }
 
-          Write-Host "Initializing MSYS2 keyring for extracted snapshot."
-          & $pacmanKey --init
+          if (!(Test-Path $pacmanKeyScript) -and !(Test-Path $pacmanKeyExe)) {
+            Write-Host "::group::MSYS2 pacman tool files"
+            Get-ChildItem (Join-Path $msys 'usr\bin') -Filter 'pacman*' -ErrorAction SilentlyContinue | Select-Object Name, Length, LastWriteTime
+            Write-Host "::endgroup::"
+            Write-Error "Snapshot keyring initialization failed: pacman-key was not found as either $pacmanKeyScript or $pacmanKeyExe."
+            exit 1
+          }
+
+          Write-Host "Initializing MSYS2 keyring for extracted snapshot through bash."
+          & $bash -lc 'pacman-key --init'
           if ($LASTEXITCODE -ne 0) {
             Write-Error "Snapshot keyring initialization failed: pacman-key --init exited with $LASTEXITCODE."
             exit $LASTEXITCODE
           }
 
-          & $pacmanKey --populate msys2
+          & $bash -lc 'pacman-key --populate msys2'
           if ($LASTEXITCODE -ne 0) {
             Write-Error "Snapshot keyring initialization failed: pacman-key --populate msys2 exited with $LASTEXITCODE."
             exit $LASTEXITCODE
