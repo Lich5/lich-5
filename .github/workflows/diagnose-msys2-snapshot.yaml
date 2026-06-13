@@ -33,6 +33,7 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@0cb964fd540e0a24c900370abf38a33466142735 # v1.305.0
         with:
+          ruby-version: "4.0.3"
           bundler-cache: false
 
       - name: Validate inputs
@@ -90,11 +91,37 @@ jobs:
           }
 
           "MSYS2_ROOT=$msys" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
-          "MSYS2_PATH=$msys\ucrt64\bin;$msys\usr\bin;$env:Path" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Build sanitized PATH for snapshot MSYS2
+        id: snapshotpath
+        shell: powershell
+        run: |
+          $msys = $env:MSYS2_ROOT
+          if (!(Test-Path $msys)) {
+            Write-Error "Cannot build snapshot PATH because MSYS2_ROOT does not exist: $msys"
+            exit 1
+          }
+
+          $orig = $env:Path -split ';'
+          $filtered = $orig | Where-Object {
+            $_ -and
+            ($_ -notlike '*\Ruby\*\x64\msys64\*') -and
+            ($_ -ne 'C:\mingw64\bin') -and
+            ($_ -notmatch '^C:\\Strawberry(\\|$)')
+          }
+          $snapshotPath = @("$msys\ucrt64\bin", "$msys\usr\bin") + $filtered
+          $joined = ($snapshotPath -join ';')
+
+          "PATH_SNAPSHOT_MSYS=$joined" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          "path=$joined" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "RI_DEVKIT=$msys" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          "MSYSTEM=UCRT64" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          "MSYSTEM_PREFIX=/ucrt64" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Query bundled snapshot package universe
         shell: powershell
         env:
+          PATH: ${{ steps.snapshotpath.outputs.path }}
           MSYSTEM: UCRT64
         run: |
           $msys = $env:MSYS2_ROOT
@@ -105,6 +132,10 @@ jobs:
           Write-Host "snapshot-date=$env:MSYS2_SNAPSHOT_DATE"
           Write-Host "mode=$env:DIAG_MODE"
           Write-Host "msys=$msys"
+          Write-Host "RI_DEVKIT=$env:RI_DEVKIT"
+          Write-Host "MSYSTEM=$env:MSYSTEM"
+          Write-Host "MSYSTEM_PREFIX=$env:MSYSTEM_PREFIX"
+          Write-Host "PATH_SNAPSHOT_MSYS=$env:PATH_SNAPSHOT_MSYS"
           & $pacman --version
           Write-Host "::endgroup::"
 
@@ -158,6 +189,7 @@ jobs:
         if: ${{ inputs.mode == 'install-and-smoke' }}
         shell: powershell
         env:
+          PATH: ${{ steps.snapshotpath.outputs.path }}
           MSYSTEM: UCRT64
           RI_DEVKIT: C:\Ruby4Lich5\msys64
           MSYSTEM_PREFIX: /ucrt64
@@ -186,20 +218,34 @@ jobs:
           & $pacman -Q
           Write-Host "::endgroup::"
 
+          $gcc = Join-Path $msys 'ucrt64\bin\gcc.exe'
+          $pkgc = Join-Path $msys 'ucrt64\bin\pkg-config.exe'
+          "CC=$gcc" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          "PKG_CONFIG=$pkgc" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          "PKG_CONFIG_PATH=$msys\ucrt64\lib\pkgconfig;$msys\lib\pkgconfig" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+
       - name: Install and smoke gtk3 gem against snapshot
         if: ${{ inputs.mode == 'install-and-smoke' }}
         shell: powershell
         env:
+          PATH: ${{ steps.snapshotpath.outputs.path }}
           RI_DEVKIT: C:\Ruby4Lich5\msys64
           MSYSTEM: UCRT64
           MSYSTEM_PREFIX: /ucrt64
           CC: C:\Ruby4Lich5\msys64\ucrt64\bin\gcc.exe
           PKG_CONFIG: C:\Ruby4Lich5\msys64\ucrt64\bin\pkg-config.exe
+          PKG_CONFIG_PATH: C:\Ruby4Lich5\msys64\ucrt64\lib\pkgconfig;C:\Ruby4Lich5\msys64\lib\pkgconfig
         run: |
           $msys = $env:MSYS2_ROOT
           $env:Path = "$msys\ucrt64\bin;$msys\usr\bin;$env:Path"
 
           Write-Host "::group::Snapshot build surface"
+          Write-Host "RI_DEVKIT=$env:RI_DEVKIT"
+          Write-Host "MSYSTEM=$env:MSYSTEM"
+          Write-Host "MSYSTEM_PREFIX=$env:MSYSTEM_PREFIX"
+          Write-Host "CC=$env:CC"
+          Write-Host "PKG_CONFIG=$env:PKG_CONFIG"
+          Write-Host "PKG_CONFIG_PATH=$env:PKG_CONFIG_PATH"
           where.exe ruby
           where.exe gcc
           where.exe pkg-config
