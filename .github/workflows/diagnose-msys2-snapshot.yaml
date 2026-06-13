@@ -1,0 +1,279 @@
+name: diagnose MSYS2 snapshot
+
+on:
+  workflow_dispatch:
+    inputs:
+      snapshot-date:
+        description: "MSYS2 base archive date to test, for example 20250830 or 20250622."
+        required: false
+        default: "20250830"
+      mode:
+        description: "query-only stops after package DB inspection; install-and-smoke installs GTK stack and tests gtk3."
+        required: false
+        default: "query-only"
+        type: choice
+        options:
+          - "query-only"
+          - "install-and-smoke"
+      gtk3-gem-version:
+        description: "gtk3 gem version to use in install-and-smoke mode."
+        required: false
+        default: "4.3.3"
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose_msys2_snapshot:
+    name: Diagnose MSYS2 snapshot package universe
+    runs-on: windows-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@0cb964fd540e0a24c900370abf38a33466142735 # v1.305.0
+        with:
+          ruby-version: "4.0.3"
+          bundler-cache: false
+
+      - name: Validate inputs
+        shell: powershell
+        run: |
+          $snapshotDate = '${{ inputs.snapshot-date }}'
+          $mode = '${{ inputs.mode }}'
+          $gtk3GemVersion = '${{ inputs.gtk3-gem-version }}'
+
+          if ($snapshotDate -notmatch '^\d{8}$') {
+            Write-Error "snapshot-date must be YYYYMMDD, for example 20250830; received '$snapshotDate'."
+            exit 1
+          }
+
+          if ($gtk3GemVersion -notmatch '^\d+\.\d+\.\d+$') {
+            Write-Error "gtk3-gem-version must look like N.N.N; received '$gtk3GemVersion'."
+            exit 1
+          }
+
+          "MSYS2_SNAPSHOT_DATE=$snapshotDate" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          "DIAG_MODE=$mode" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          "GTK3_GEM_VERSION=$gtk3GemVersion" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Download and extract dated MSYS2 base archive
+        shell: powershell
+        run: |
+          $snapshotDate = $env:MSYS2_SNAPSHOT_DATE
+          $msysParent = 'C:\Ruby4Lich5'
+          $msys = Join-Path $msysParent 'msys64'
+          $archive = Join-Path $env:RUNNER_TEMP "msys2-base-x86_64-$snapshotDate.tar.zst"
+          $url = "https://repo.msys2.org/distrib/x86_64/msys2-base-x86_64-$snapshotDate.tar.zst"
+
+          if (Test-Path $msysParent) {
+            Remove-Item $msysParent -Recurse -Force
+          }
+          New-Item -ItemType Directory -Path $msysParent -Force | Out-Null
+
+          Write-Host "Downloading $url"
+          Invoke-WebRequest -Uri $url -OutFile $archive
+          if (!(Test-Path $archive)) {
+            Write-Error "MSYS2 snapshot download failed: expected archive $archive was not created."
+            exit 1
+          }
+
+          Write-Host "Extracting $archive to $msysParent"
+          tar -I zstd -xf $archive -C $msysParent
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "MSYS2 snapshot extraction failed."
+            exit $LASTEXITCODE
+          }
+
+          if (!(Test-Path (Join-Path $msys 'usr\bin\pacman.exe'))) {
+            Write-Error "MSYS2 snapshot extraction failed: pacman.exe not found under $msys."
+            exit 1
+          }
+
+          "MSYS2_ROOT=$msys" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Build sanitized PATH for snapshot MSYS2
+        id: snapshotpath
+        shell: powershell
+        run: |
+          $msys = $env:MSYS2_ROOT
+          if (!(Test-Path $msys)) {
+            Write-Error "Cannot build snapshot PATH because MSYS2_ROOT does not exist: $msys"
+            exit 1
+          }
+
+          $orig = $env:Path -split ';'
+          $filtered = $orig | Where-Object {
+            $_ -and
+            ($_ -notlike '*\Ruby\*\x64\msys64\*') -and
+            ($_ -ne 'C:\mingw64\bin') -and
+            ($_ -notmatch '^C:\\Strawberry(\\|$)')
+          }
+          $snapshotPath = @("$msys\ucrt64\bin", "$msys\usr\bin") + $filtered
+          $joined = ($snapshotPath -join ';')
+
+          "PATH_SNAPSHOT_MSYS=$joined" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          "path=$joined" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "RI_DEVKIT=$msys" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          "MSYSTEM=UCRT64" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          "MSYSTEM_PREFIX=/ucrt64" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Query bundled snapshot package universe
+        shell: powershell
+        env:
+          PATH: ${{ steps.snapshotpath.outputs.path }}
+          MSYSTEM: UCRT64
+        run: |
+          $msys = $env:MSYS2_ROOT
+          $pacman = Join-Path $msys 'usr\bin\pacman.exe'
+          $env:Path = "$msys\ucrt64\bin;$msys\usr\bin;$env:Path"
+
+          Write-Host "::group::Snapshot identity"
+          Write-Host "snapshot-date=$env:MSYS2_SNAPSHOT_DATE"
+          Write-Host "mode=$env:DIAG_MODE"
+          Write-Host "msys=$msys"
+          Write-Host "RI_DEVKIT=$env:RI_DEVKIT"
+          Write-Host "MSYSTEM=$env:MSYSTEM"
+          Write-Host "MSYSTEM_PREFIX=$env:MSYSTEM_PREFIX"
+          Write-Host "PATH_SNAPSHOT_MSYS=$env:PATH_SNAPSHOT_MSYS"
+          & $pacman --version
+          Write-Host "::endgroup::"
+
+          Write-Host "::group::Configured pacman repositories"
+          Get-Content (Join-Path $msys 'etc\pacman.conf')
+          Write-Host "::endgroup::"
+
+          Write-Host "::group::Snapshot package DB candidates"
+          $packages = @(
+            'mingw-w64-ucrt-x86_64-glib2',
+            'mingw-w64-ucrt-x86_64-gobject-introspection',
+            'mingw-w64-ucrt-x86_64-gobject-introspection-runtime',
+            'mingw-w64-ucrt-x86_64-gtk3',
+            'mingw-w64-ucrt-x86_64-pkgconf',
+            'mingw-w64-ucrt-x86_64-cairo',
+            'mingw-w64-ucrt-x86_64-gdk-pixbuf2',
+            'mingw-w64-ucrt-x86_64-pango',
+            'mingw-w64-ucrt-x86_64-harfbuzz',
+            'mingw-w64-ucrt-x86_64-libffi',
+            'mingw-w64-ucrt-x86_64-libxml2',
+            'mingw-w64-ucrt-x86_64-pcre2',
+            'mingw-w64-ucrt-x86_64-zlib',
+            'mingw-w64-ucrt-x86_64-gettext',
+            'mingw-w64-ucrt-x86_64-gcc',
+            'mingw-w64-ucrt-x86_64-gcc-libs',
+            'mingw-w64-ucrt-x86_64-make',
+            'mingw-w64-ucrt-x86_64-sqlite3'
+          )
+
+          foreach ($pkg in $packages) {
+            $entry = & $pacman -Sl ucrt64 $pkg 2>$null
+            if ($LASTEXITCODE -ne 0 -or -not $entry) {
+              Write-Host "MISSING $pkg"
+              continue
+            }
+            Write-Host $entry
+          }
+          Write-Host "::endgroup::"
+
+          Write-Host "::group::Local package DB files"
+          Get-ChildItem (Join-Path $msys 'var\lib\pacman\sync') -ErrorAction SilentlyContinue | Select-Object Name, Length, LastWriteTime
+          Write-Host "::endgroup::"
+
+      - name: Stop after query-only diagnostics
+        if: ${{ inputs.mode == 'query-only' }}
+        shell: powershell
+        run: |
+          Write-Host "query-only mode complete. Review the package universe above before choosing install-and-smoke."
+
+      - name: Install GTK3 native stack from snapshot
+        if: ${{ inputs.mode == 'install-and-smoke' }}
+        shell: powershell
+        env:
+          PATH: ${{ steps.snapshotpath.outputs.path }}
+          MSYSTEM: UCRT64
+          RI_DEVKIT: C:\Ruby4Lich5\msys64
+          MSYSTEM_PREFIX: /ucrt64
+        run: |
+          $msys = $env:MSYS2_ROOT
+          $pacman = Join-Path $msys 'usr\bin\pacman.exe'
+          $env:Path = "$msys\ucrt64\bin;$msys\usr\bin;$env:Path"
+
+          Write-Host "Installing from bundled snapshot package DB. Intentionally not running pacman -Sy or pacman -Syu."
+          & $pacman -S --needed --noconfirm `
+            mingw-w64-ucrt-x86_64-gcc `
+            mingw-w64-ucrt-x86_64-gcc-libs `
+            mingw-w64-ucrt-x86_64-make `
+            mingw-w64-ucrt-x86_64-pkgconf `
+            mingw-w64-ucrt-x86_64-gobject-introspection `
+            mingw-w64-ucrt-x86_64-gobject-introspection-runtime `
+            mingw-w64-ucrt-x86_64-sqlite3 `
+            mingw-w64-ucrt-x86_64-gtk3 `
+            make
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Snapshot install failed: pacman could not install the GTK3 native stack from the dated package DB."
+            exit $LASTEXITCODE
+          }
+
+          Write-Host "::group::Installed package versions"
+          & $pacman -Q
+          Write-Host "::endgroup::"
+
+          $gcc = Join-Path $msys 'ucrt64\bin\gcc.exe'
+          $pkgc = Join-Path $msys 'ucrt64\bin\pkg-config.exe'
+          "CC=$gcc" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          "PKG_CONFIG=$pkgc" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          "PKG_CONFIG_PATH=$msys\ucrt64\lib\pkgconfig;$msys\lib\pkgconfig" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Install and smoke gtk3 gem against snapshot
+        if: ${{ inputs.mode == 'install-and-smoke' }}
+        shell: powershell
+        env:
+          PATH: ${{ steps.snapshotpath.outputs.path }}
+          RI_DEVKIT: C:\Ruby4Lich5\msys64
+          MSYSTEM: UCRT64
+          MSYSTEM_PREFIX: /ucrt64
+          CC: C:\Ruby4Lich5\msys64\ucrt64\bin\gcc.exe
+          PKG_CONFIG: C:\Ruby4Lich5\msys64\ucrt64\bin\pkg-config.exe
+          PKG_CONFIG_PATH: C:\Ruby4Lich5\msys64\ucrt64\lib\pkgconfig;C:\Ruby4Lich5\msys64\lib\pkgconfig
+        run: |
+          $msys = $env:MSYS2_ROOT
+          $env:Path = "$msys\ucrt64\bin;$msys\usr\bin;$env:Path"
+
+          Write-Host "::group::Snapshot build surface"
+          Write-Host "RI_DEVKIT=$env:RI_DEVKIT"
+          Write-Host "MSYSTEM=$env:MSYSTEM"
+          Write-Host "MSYSTEM_PREFIX=$env:MSYSTEM_PREFIX"
+          Write-Host "CC=$env:CC"
+          Write-Host "PKG_CONFIG=$env:PKG_CONFIG"
+          Write-Host "PKG_CONFIG_PATH=$env:PKG_CONFIG_PATH"
+          where.exe ruby
+          where.exe gcc
+          where.exe pkg-config
+          & $env:PKG_CONFIG --version
+          & $env:PKG_CONFIG --modversion gtk+-3.0 gobject-introspection-1.0 glib-2.0 gobject-2.0 gio-2.0 cairo pango
+          Write-Host "::endgroup::"
+
+          gem install sqlite3 --platform ruby -- `
+            --enable-system-libraries `
+            --with-sqlite3-include="$msys/ucrt64/include" `
+            --with-sqlite3-lib="$msys/ucrt64/lib"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Snapshot smoke failed: sqlite3 native gem could not compile."
+            exit $LASTEXITCODE
+          }
+
+          gem install gtk3 --version "$env:GTK3_GEM_VERSION" --no-document
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Snapshot smoke failed: gtk3 $env:GTK3_GEM_VERSION could not install."
+            exit $LASTEXITCODE
+          }
+
+          Write-Host "::group::Ruby helper gem versions"
+          gem list pkg-config native-package-installer glib2 gio2 gobject-introspection gtk3
+          Write-Host "::endgroup::"
+
+          ruby -e "require 'sqlite3'; require 'gtk3'; Gtk.init; puts 'snapshot GTK smoke OK'"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Snapshot smoke failed: Ruby could not require sqlite3/gtk3 and initialize GTK."
+            exit $LASTEXITCODE
+          }
