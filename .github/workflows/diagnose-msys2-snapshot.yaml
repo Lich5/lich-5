@@ -417,7 +417,7 @@ jobs:
           $giGem = & $rubyExe -e "require 'rubygems'; puts Gem::Specification.find_by_name('gobject-introspection').full_gem_path"
           $glibSo = Join-Path $glibGem 'lib\glib2.so'
           $giSo = Join-Path $giGem 'lib\gobject_introspection.so'
-          $rubyDll = Get-ChildItem (Join-Path $rubyRoot 'bin') -Filter 'ruby*.dll' -ErrorAction SilentlyContinue | Select-Object -First 1
+          $rubyDll = Get-ChildItem (Join-Path $rubyRoot 'bin') -Filter '*ruby*.dll' -ErrorAction SilentlyContinue | Select-Object -First 1
 
           Write-Host "::group::Ruby native extension files"
           foreach ($path in @($glibSo, $giSo)) {
@@ -437,7 +437,7 @@ jobs:
             Write-Host "Ruby DLL=MISSING under $(Join-Path $rubyRoot 'bin')"
           }
 
-          foreach ($dll in @(
+          $dllChecks = @(
             'libglib-2.0-0.dll',
             'libgobject-2.0-0.dll',
             'libgio-2.0-0.dll',
@@ -446,7 +446,12 @@ jobs:
             'libintl-8.dll',
             'libiconv-2.dll',
             'zlib1.dll'
-          )) {
+          )
+          if ($rubyDll) {
+            $dllChecks = @($rubyDll.Name) + $dllChecks
+          }
+
+          foreach ($dll in $dllChecks) {
             Write-Host "where $dll"
             $whereOut = Join-Path $env:RUNNER_TEMP "where-$dll.stdout.log"
             $whereErr = Join-Path $env:RUNNER_TEMP "where-$dll.stderr.log"
@@ -466,7 +471,7 @@ jobs:
           )
           $objdump = $objdumpCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
           if ($objdump) {
-            Write-Host "::group::Native import tables"
+            Write-Host "::group::Native imported DLL names"
             Write-Host "objdump=$objdump"
             $binaries = @(
               $glibSo,
@@ -486,7 +491,19 @@ jobs:
               }
 
               Write-Host "--- $binary"
-              & $objdump -p $binary | Select-String -Pattern 'DLL Name|vma:|Hint/Ord|^\s+[0-9a-fA-F]+\s+' | Select-Object -First 240
+              & $objdump -p $binary | Select-String -Pattern 'DLL Name'
+            }
+            Write-Host "::endgroup::"
+
+            Write-Host "::group::Ruby extension imported Ruby symbols"
+            foreach ($binary in @($glibSo, $giSo)) {
+              if (!(Test-Path $binary)) {
+                Write-Host "MISSING $binary"
+                continue
+              }
+
+              Write-Host "--- $binary"
+              & $objdump -p $binary | Select-String -Pattern 'DLL Name|Hint/Ord|rb_|ruby_|Init_'
             }
             Write-Host "::endgroup::"
           } else {
