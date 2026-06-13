@@ -182,9 +182,15 @@ jobs:
             'mingw-w64-ucrt-x86_64-sqlite3'
           )
 
+          $pacmanStdOut = Join-Path $env:RUNNER_TEMP 'pacman-sl-ucrt64.stdout.log'
           $pacmanStdErr = Join-Path $env:RUNNER_TEMP 'pacman-sl-ucrt64.stderr.log'
-          $allEntries = & $pacman -Sl ucrt64 2>$pacmanStdErr
+          $pacmanCmd = "`"$pacman`" -Sl ucrt64 > `"$pacmanStdOut`" 2> `"$pacmanStdErr`""
+          cmd.exe /d /c $pacmanCmd
           $pacmanExit = $LASTEXITCODE
+          $allEntries = @()
+          if (Test-Path $pacmanStdOut) {
+            $allEntries = @(Get-Content $pacmanStdOut -ErrorAction SilentlyContinue)
+          }
           if (Test-Path $pacmanStdErr) {
             $stderr = Get-Content $pacmanStdErr -ErrorAction SilentlyContinue
             if ($stderr) {
