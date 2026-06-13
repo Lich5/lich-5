@@ -84,19 +84,31 @@ jobs:
           $msysSource = $env:MSYS2_SOURCE
           $msysParent = 'C:\Ruby4Lich5'
           $msys = Join-Path $msysParent 'msys64'
+          $distribUrl = 'https://repo.msys2.org/distrib/x86_64/'
           if ($msysSource -eq 'current') {
-            $archiveName = 'msys2-base-x86_64-latest.tar.zst'
+            Write-Host "Resolving newest MSYS2 base archive from $distribUrl"
+            $index = Invoke-WebRequest -Uri $distribUrl
+            $archiveName = @(
+              [regex]::Matches($index.Content, 'msys2-base-x86_64-\d{8}\.tar\.zst') |
+                ForEach-Object { $_.Value } |
+                Sort-Object -Unique -Descending
+            ) | Select-Object -First 1
+            if (-not $archiveName) {
+              Write-Error "MSYS2 current archive resolution failed: no dated msys2-base-x86_64-YYYYMMDD.tar.zst entries found at $distribUrl."
+              exit 1
+            }
           } else {
             $archiveName = "msys2-base-x86_64-$snapshotDate.tar.zst"
           }
           $archive = Join-Path $env:RUNNER_TEMP $archiveName
-          $url = "https://repo.msys2.org/distrib/x86_64/$archiveName"
+          $url = "$distribUrl$archiveName"
 
           if (Test-Path $msysParent) {
             Remove-Item $msysParent -Recurse -Force
           }
           New-Item -ItemType Directory -Path $msysParent -Force | Out-Null
 
+          Write-Host "Resolved MSYS2 archive: $archiveName"
           Write-Host "Downloading $url"
           Invoke-WebRequest -Uri $url -OutFile $archive
           if (!(Test-Path $archive)) {
