@@ -135,6 +135,33 @@ jobs:
           "MSYSTEM=UCRT64" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
           "MSYSTEM_PREFIX=/ucrt64" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
 
+      - name: Initialize snapshot MSYS2 keyring
+        shell: powershell
+        env:
+          PATH: ${{ steps.snapshotpath.outputs.path }}
+          MSYSTEM: UCRT64
+        run: |
+          $msys = $env:MSYS2_ROOT
+          $env:Path = "$msys\ucrt64\bin;$msys\usr\bin;$env:Path"
+          $pacmanKey = Join-Path $msys 'usr\bin\pacman-key.exe'
+          if (!(Test-Path $pacmanKey)) {
+            Write-Error "Snapshot keyring initialization failed: pacman-key.exe not found at $pacmanKey."
+            exit 1
+          }
+
+          Write-Host "Initializing MSYS2 keyring for extracted snapshot."
+          & $pacmanKey --init
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Snapshot keyring initialization failed: pacman-key --init exited with $LASTEXITCODE."
+            exit $LASTEXITCODE
+          }
+
+          & $pacmanKey --populate msys2
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Snapshot keyring initialization failed: pacman-key --populate msys2 exited with $LASTEXITCODE."
+            exit $LASTEXITCODE
+          }
+
       - name: Query bundled snapshot package universe
         shell: powershell
         env:
