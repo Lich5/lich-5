@@ -30,12 +30,6 @@ jobs:
     timeout-minutes: 60
 
     steps:
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@0cb964fd540e0a24c900370abf38a33466142735 # v1.305.0
-        with:
-          ruby-version: "4.0.3"
-          bundler-cache: false
-
       - name: Validate inputs
         shell: powershell
         run: |
@@ -78,10 +72,33 @@ jobs:
             exit 1
           }
 
-          Write-Host "Extracting $archive to $msysParent"
-          tar -I zstd -xf $archive -C $msysParent
+          $sevenZip = "${env:ProgramFiles}\7-Zip\7z.exe"
+          if (!(Test-Path $sevenZip)) {
+            $sevenZip = '7z.exe'
+          }
+          $extractWork = Join-Path $env:RUNNER_TEMP "msys2-base-$snapshotDate"
+          if (Test-Path $extractWork) {
+            Remove-Item $extractWork -Recurse -Force
+          }
+          New-Item -ItemType Directory -Path $extractWork -Force | Out-Null
+
+          Write-Host "Extracting $archive to $extractWork with 7-Zip"
+          & $sevenZip x $archive "-o$extractWork" -y
           if ($LASTEXITCODE -ne 0) {
-            Write-Error "MSYS2 snapshot extraction failed."
+            Write-Error "MSYS2 snapshot zstd extraction failed."
+            exit $LASTEXITCODE
+          }
+
+          $tarFile = Get-ChildItem $extractWork -Filter '*.tar' -File | Select-Object -First 1
+          if (-not $tarFile) {
+            Write-Error "MSYS2 snapshot extraction failed: no .tar file found after zstd extraction."
+            exit 1
+          }
+
+          Write-Host "Extracting $($tarFile.FullName) to $msysParent with 7-Zip"
+          & $sevenZip x $tarFile.FullName "-o$msysParent" -y
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "MSYS2 snapshot tar extraction failed."
             exit $LASTEXITCODE
           }
 
@@ -224,6 +241,59 @@ jobs:
           "PKG_CONFIG=$pkgc" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
           "PKG_CONFIG_PATH=$msys\ucrt64\lib\pkgconfig;$msys\lib\pkgconfig" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
 
+      - name: Download and extract RubyInstaller
+        if: ${{ inputs.mode == 'install-and-smoke' }}
+        shell: powershell
+        run: |
+          $rubyVersion = '4.0.3'
+          $rubyInstallerVersion = '4.0.3-1'
+          $rubyParent = 'C:\Ruby4Lich5\ruby'
+          $archive = Join-Path $env:RUNNER_TEMP "rubyinstaller-$rubyInstallerVersion-x64.7z"
+          $url = "https://github.com/oneclick/rubyinstaller2/releases/download/RubyInstaller-$rubyInstallerVersion/rubyinstaller-$rubyInstallerVersion-x64.7z"
+
+          if (Test-Path $rubyParent) {
+            Remove-Item $rubyParent -Recurse -Force
+          }
+          New-Item -ItemType Directory -Path $rubyParent -Force | Out-Null
+
+          Write-Host "Downloading RubyInstaller $rubyInstallerVersion from $url"
+          Invoke-WebRequest -Uri $url -OutFile $archive
+          if (!(Test-Path $archive)) {
+            Write-Error "RubyInstaller download failed: expected archive $archive was not created."
+            exit 1
+          }
+
+          $sevenZip = "${env:ProgramFiles}\7-Zip\7z.exe"
+          if (!(Test-Path $sevenZip)) {
+            $sevenZip = '7z.exe'
+          }
+
+          Write-Host "Extracting RubyInstaller to $rubyParent with 7-Zip"
+          & $sevenZip x $archive "-o$rubyParent" -y
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "RubyInstaller extraction failed."
+            exit $LASTEXITCODE
+          }
+
+          $rubyExe = Get-ChildItem $rubyParent -Recurse -Filter ruby.exe -File | Where-Object {
+            $_.FullName -match '\\bin\\ruby\.exe$'
+          } | Select-Object -First 1
+          if (-not $rubyExe) {
+            Write-Error "RubyInstaller extraction failed: ruby.exe was not found under $rubyParent."
+            exit 1
+          }
+
+          $rubyRoot = Split-Path (Split-Path $rubyExe.FullName -Parent) -Parent
+          Write-Host "RubyInstaller root: $rubyRoot"
+          & $rubyExe.FullName --version
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "RubyInstaller validation failed: ruby.exe could not run."
+            exit $LASTEXITCODE
+          }
+
+          "RUBY_ROOT=$rubyRoot" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          "RUBY_EXE=$($rubyExe.FullName)" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+
       - name: Install and smoke gtk3 gem against snapshot
         if: ${{ inputs.mode == 'install-and-smoke' }}
         shell: powershell
@@ -237,7 +307,13 @@ jobs:
           PKG_CONFIG_PATH: C:\Ruby4Lich5\msys64\ucrt64\lib\pkgconfig;C:\Ruby4Lich5\msys64\lib\pkgconfig
         run: |
           $msys = $env:MSYS2_ROOT
-          $env:Path = "$msys\ucrt64\bin;$msys\usr\bin;$env:Path"
+          $rubyRoot = $env:RUBY_ROOT
+          $rubyExe = $env:RUBY_EXE
+          if (!(Test-Path $rubyExe)) {
+            Write-Error "Snapshot smoke failed: RUBY_EXE does not exist: $rubyExe"
+            exit 1
+          }
+          $env:Path = "$rubyRoot\bin;$msys\ucrt64\bin;$msys\usr\bin;$env:Path"
 
           Write-Host "::group::Snapshot build surface"
           Write-Host "RI_DEVKIT=$env:RI_DEVKIT"
@@ -253,7 +329,7 @@ jobs:
           & $env:PKG_CONFIG --modversion gtk+-3.0 gobject-introspection-1.0 glib-2.0 gobject-2.0 gio-2.0 cairo pango
           Write-Host "::endgroup::"
 
-          gem install sqlite3 --platform ruby -- `
+          & $rubyExe -S gem install sqlite3 --platform ruby -- `
             --enable-system-libraries `
             --with-sqlite3-include="$msys/ucrt64/include" `
             --with-sqlite3-lib="$msys/ucrt64/lib"
@@ -262,17 +338,17 @@ jobs:
             exit $LASTEXITCODE
           }
 
-          gem install gtk3 --version "$env:GTK3_GEM_VERSION" --no-document
+          & $rubyExe -S gem install gtk3 --version "$env:GTK3_GEM_VERSION" --no-document
           if ($LASTEXITCODE -ne 0) {
             Write-Error "Snapshot smoke failed: gtk3 $env:GTK3_GEM_VERSION could not install."
             exit $LASTEXITCODE
           }
 
           Write-Host "::group::Ruby helper gem versions"
-          gem list pkg-config native-package-installer glib2 gio2 gobject-introspection gtk3
+          & $rubyExe -S gem list pkg-config native-package-installer glib2 gio2 gobject-introspection gtk3
           Write-Host "::endgroup::"
 
-          ruby -e "require 'sqlite3'; require 'gtk3'; Gtk.init; puts 'snapshot GTK smoke OK'"
+          & $rubyExe -e "require 'sqlite3'; require 'gtk3'; Gtk.init; puts 'snapshot GTK smoke OK'"
           if ($LASTEXITCODE -ne 0) {
             Write-Error "Snapshot smoke failed: Ruby could not require sqlite3/gtk3 and initialize GTK."
             exit $LASTEXITCODE
