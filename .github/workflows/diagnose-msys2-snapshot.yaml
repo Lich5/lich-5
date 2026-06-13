@@ -182,13 +182,30 @@ jobs:
             'mingw-w64-ucrt-x86_64-sqlite3'
           )
 
+          $pacmanStdErr = Join-Path $env:RUNNER_TEMP 'pacman-sl-ucrt64.stderr.log'
+          $allEntries = & $pacman -Sl ucrt64 2>$pacmanStdErr
+          $pacmanExit = $LASTEXITCODE
+          if (Test-Path $pacmanStdErr) {
+            $stderr = Get-Content $pacmanStdErr -ErrorAction SilentlyContinue
+            if ($stderr) {
+              Write-Host "::group::pacman -Sl warnings"
+              $stderr | ForEach-Object { Write-Host $_ }
+              Write-Host "::endgroup::"
+            }
+          }
+          if ($pacmanExit -ne 0 -and -not $allEntries) {
+            Write-Error "Snapshot package DB query failed: pacman -Sl ucrt64 exited with $pacmanExit and produced no package entries."
+            exit $pacmanExit
+          }
+
           foreach ($pkg in $packages) {
-            $entry = & $pacman -Sl ucrt64 $pkg 2>$null
-            if ($LASTEXITCODE -ne 0 -or -not $entry) {
+            $escaped = [regex]::Escape($pkg)
+            $entry = @($allEntries | Where-Object { $_ -match "^ucrt64\s+$escaped\s+" })
+            if ($entry.Count -eq 0) {
               Write-Host "MISSING $pkg"
               continue
             }
-            Write-Host $entry
+            $entry | ForEach-Object { Write-Host $_ }
           }
           Write-Host "::endgroup::"
 
