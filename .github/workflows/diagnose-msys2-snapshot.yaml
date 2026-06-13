@@ -87,7 +87,7 @@ jobs:
           $distribUrl = 'https://repo.msys2.org/distrib/x86_64/'
           if ($msysSource -eq 'current') {
             Write-Host "Resolving newest MSYS2 base archive from $distribUrl"
-            $index = Invoke-WebRequest -Uri $distribUrl
+            $index = Invoke-WebRequest -Uri $distribUrl -UseBasicParsing
             $archiveName = @(
               [regex]::Matches($index.Content, 'msys2-base-x86_64-\d{8}\.tar\.zst') |
                 ForEach-Object { $_.Value } |
@@ -110,7 +110,7 @@ jobs:
 
           Write-Host "Resolved MSYS2 archive: $archiveName"
           Write-Host "Downloading $url"
-          Invoke-WebRequest -Uri $url -OutFile $archive
+          Invoke-WebRequest -Uri $url -OutFile $archive -UseBasicParsing
           if (!(Test-Path $archive)) {
             Write-Error "MSYS2 snapshot download failed: expected archive $archive was not created."
             exit 1
@@ -396,7 +396,7 @@ jobs:
           New-Item -ItemType Directory -Path $rubyParent -Force | Out-Null
 
           Write-Host "Downloading RubyInstaller $rubyInstallerVersion from $url"
-          Invoke-WebRequest -Uri $url -OutFile $archive
+          Invoke-WebRequest -Uri $url -OutFile $archive -UseBasicParsing
           if (!(Test-Path $archive)) {
             Write-Error "RubyInstaller download failed: expected archive $archive was not created."
             exit 1
