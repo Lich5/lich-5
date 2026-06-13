@@ -19,6 +19,10 @@ on:
         description: "gtk3 gem version to use in install-and-smoke mode."
         required: false
         default: "4.3.3"
+      ruby-installer-version:
+        description: "RubyInstaller archive version to use in install-and-smoke mode, for example 3.4.5-1 or 4.0.3-1."
+        required: false
+        default: "3.4.5-1"
 
 permissions:
   contents: read
@@ -36,6 +40,7 @@ jobs:
           $snapshotDate = '${{ inputs.snapshot-date }}'
           $mode = '${{ inputs.mode }}'
           $gtk3GemVersion = '${{ inputs.gtk3-gem-version }}'
+          $rubyInstallerVersion = '${{ inputs.ruby-installer-version }}'
 
           if ($snapshotDate -notmatch '^\d{8}$') {
             Write-Error "snapshot-date must be YYYYMMDD, for example 20250830; received '$snapshotDate'."
@@ -47,9 +52,15 @@ jobs:
             exit 1
           }
 
+          if ($rubyInstallerVersion -notmatch '^\d+\.\d+\.\d+-\d+$') {
+            Write-Error "ruby-installer-version must look like N.N.N-N, for example 3.4.5-1; received '$rubyInstallerVersion'."
+            exit 1
+          }
+
           "MSYS2_SNAPSHOT_DATE=$snapshotDate" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
           "DIAG_MODE=$mode" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
           "GTK3_GEM_VERSION=$gtk3GemVersion" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          "RUBY_INSTALLER_VERSION=$rubyInstallerVersion" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Download and extract dated MSYS2 base archive
         shell: powershell
@@ -187,6 +198,8 @@ jobs:
           Write-Host "::group::Snapshot identity"
           Write-Host "snapshot-date=$env:MSYS2_SNAPSHOT_DATE"
           Write-Host "mode=$env:DIAG_MODE"
+          Write-Host "ruby-installer-version=$env:RUBY_INSTALLER_VERSION"
+          Write-Host "gtk3-gem-version=$env:GTK3_GEM_VERSION"
           Write-Host "msys=$msys"
           Write-Host "RI_DEVKIT=$env:RI_DEVKIT"
           Write-Host "MSYSTEM=$env:MSYSTEM"
@@ -307,11 +320,15 @@ jobs:
         if: ${{ inputs.mode == 'install-and-smoke' }}
         shell: powershell
         run: |
-          $rubyVersion = '4.0.3'
-          $rubyInstallerVersion = '4.0.3-1'
+          $rubyInstallerVersion = $env:RUBY_INSTALLER_VERSION
           $rubyParent = 'C:\Ruby4Lich5\ruby'
           $archive = Join-Path $env:RUNNER_TEMP "rubyinstaller-$rubyInstallerVersion-x64.7z"
           $url = "https://github.com/oneclick/rubyinstaller2/releases/download/RubyInstaller-$rubyInstallerVersion/rubyinstaller-$rubyInstallerVersion-x64.7z"
+
+          if ($rubyInstallerVersion -notmatch '^\d+\.\d+\.\d+-\d+$') {
+            Write-Error "RubyInstaller download failed: invalid ruby-installer-version '$rubyInstallerVersion'. Expected N.N.N-N, for example 3.4.5-1."
+            exit 1
+          }
 
           if (Test-Path $rubyParent) {
             Remove-Item $rubyParent -Recurse -Force
