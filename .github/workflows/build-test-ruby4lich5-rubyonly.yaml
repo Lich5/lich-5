@@ -511,6 +511,47 @@ jobs:
           Write-Host "MSYS2-prune: after = $afterMB MB (saved $savedMB MB)"
           Write-Host "::endgroup::"
 
+      - name: Validate post-prune Ruby GTK runtime
+        if: ${{ env.EXP_VALIDATE_RUBY_GTK == 'true' }}
+        shell: powershell
+        env:
+          PATH: ${{ steps.vendormsys.outputs.path }}
+          RI_DEVKIT: C:\Ruby4Lich5\msys64
+          MSYSTEM: UCRT64
+          MSYSTEM_PREFIX: /ucrt64
+        run: |
+          $msys = 'C:\Ruby4Lich5\msys64'
+          $env:Path = "$msys\ucrt64\bin;$msys\usr\bin;$env:Path"
+
+          $requiredPaths = @(
+            "$msys\ucrt64\bin\libgirepository-1.0-1.dll",
+            "$msys\ucrt64\bin\libglib-2.0-0.dll",
+            "$msys\ucrt64\bin\libgobject-2.0-0.dll",
+            "$msys\ucrt64\bin\libgio-2.0-0.dll",
+            "$msys\ucrt64\bin\libffi-8.dll"
+          )
+
+          foreach ($required in $requiredPaths) {
+            if (!(Test-Path $required)) {
+              Write-Error "Post-prune validation failed: expected runtime file '$required' was not found."
+              exit 1
+            }
+          }
+
+          Write-Host "::group::Post-prune GTK native lookup"
+          where.exe libgirepository-1.0-1.dll
+          where.exe libglib-2.0-0.dll
+          where.exe libgobject-2.0-0.dll
+          where.exe libgio-2.0-0.dll
+          where.exe libffi-8.dll
+          Write-Host "::endgroup::"
+
+          ruby -e "require 'sqlite3'; require 'gtk3'; Gtk.init; puts 'post-prune GTK smoke OK'"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Post-prune validation failed: Ruby could not require sqlite3/gtk3 and initialize GTK after pruning."
+            exit $LASTEXITCODE
+          }
+
       - name: Prepare Ruby-only Inno Setup script
         shell: powershell
         run: |
@@ -536,6 +577,7 @@ jobs:
           $lines = Get-Content $source
           $out = foreach ($line in $lines) {
             if ($line -match '^\s*Source:\s*"C:\\hostedtoolcache\\windows\\Ruby\\\{#RubyVersion\}\\x64\\\*";') {
+              Write-Host "Setting generated Ruby source path to active Ruby root: $rubyRoot"
               "Source: `"$rubyRoot\*`"; DestDir: `"{app}\{#RubyVersion}`";                 Components: rubygem; Flags: ignoreversion createallsubdirs recursesubdirs; Excludes: `"msys64`""
               continue
             }
@@ -563,7 +605,14 @@ jobs:
 
           $out | Set-Content $target -Encoding UTF8
           Write-Host "Generated $target without Lich payload file sources."
-          Select-String -Path $target -Pattern 'Lich5\\\*|Components:\s*lich|Tasks:\s*Lich|OutputBaseFilename|Name:\s*"rubygem"' -SimpleMatch:$false
+          Write-Host "::group::Generated Inno script checks"
+          $checks = Select-String -Path $target -Pattern 'Lich5\\\*|Components:\s*lich|Tasks:\s*Lich|OutputBaseFilename|Name:\s*"rubygem"' -SimpleMatch:$false
+          if ($checks) {
+            $checks | ForEach-Object { Write-Host $_.Line }
+          } else {
+            Write-Host "No diagnostic matches found."
+          }
+          Write-Host "::endgroup::"
 
       - name: Build Ruby-only Windows installer with Inno Setup
         shell: powershell
