@@ -31,6 +31,14 @@ on:
         description: "RubyInstaller archive version to use in install-and-smoke mode, for example 3.4.5-1 or 4.0.3-1."
         required: false
         default: "3.4.5-1"
+      glib2-gc-repair:
+        description: "Optional diagnostic glib2 patch for Ruby-defined GObject property retention."
+        required: false
+        default: "none"
+        type: choice
+        options:
+          - "none"
+          - "cache-ruby-property-setter-values"
 
 permissions:
   contents: read
@@ -50,6 +58,7 @@ jobs:
           $mode = '${{ inputs.mode }}'
           $gtk3GemVersion = '${{ inputs.gtk3-gem-version }}'
           $rubyInstallerVersion = '${{ inputs.ruby-installer-version }}'
+          $glib2GcRepair = '${{ inputs.glib2-gc-repair }}'
 
           if ($msysSource -notin @('dated', 'current')) {
             Write-Error "msys-source must be 'dated' or 'current'; received '$msysSource'."
@@ -71,11 +80,17 @@ jobs:
             exit 1
           }
 
+          if ($glib2GcRepair -notin @('none', 'cache-ruby-property-setter-values')) {
+            Write-Error "glib2-gc-repair must be 'none' or 'cache-ruby-property-setter-values'; received '$glib2GcRepair'."
+            exit 1
+          }
+
           "MSYS2_SNAPSHOT_DATE=$snapshotDate" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
           "MSYS2_SOURCE=$msysSource" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
           "DIAG_MODE=$mode" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
           "GTK3_GEM_VERSION=$gtk3GemVersion" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
           "RUBY_INSTALLER_VERSION=$rubyInstallerVersion" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          "GLIB2_GC_REPAIR=$glib2GcRepair" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Download and extract MSYS2 base archive
         shell: powershell
@@ -256,6 +271,7 @@ jobs:
           Write-Host "mode=$env:DIAG_MODE"
           Write-Host "ruby-installer-version=$env:RUBY_INSTALLER_VERSION"
           Write-Host "gtk3-gem-version=$env:GTK3_GEM_VERSION"
+          Write-Host "glib2-gc-repair=$env:GLIB2_GC_REPAIR"
           Write-Host "msys=$msys"
           Write-Host "RI_DEVKIT=$env:RI_DEVKIT"
           Write-Host "MSYSTEM=$env:MSYSTEM"
@@ -479,6 +495,83 @@ jobs:
           if ($LASTEXITCODE -ne 0) {
             Write-Error "MSYS2 smoke failed: sqlite3 native gem could not compile."
             exit $LASTEXITCODE
+          }
+
+          if ($env:GLIB2_GC_REPAIR -eq 'cache-ruby-property-setter-values') {
+            Write-Host "::group::Build patched glib2"
+            & $rubyExe -S gem install pkg-config native-package-installer --no-document
+            if ($LASTEXITCODE -ne 0) {
+              Write-Error "MSYS2 smoke failed: glib2 patch prerequisite gems could not install."
+              exit $LASTEXITCODE
+            }
+
+            $rubyGnomeTag = $env:GTK3_GEM_VERSION
+            $sourceZip = Join-Path $env:RUNNER_TEMP "ruby-gnome-$rubyGnomeTag.zip"
+            $sourceRoot = Join-Path $env:RUNNER_TEMP "ruby-gnome-$rubyGnomeTag"
+            $sourceUrl = "https://github.com/ruby-gnome/ruby-gnome/archive/refs/tags/$rubyGnomeTag.zip"
+            Write-Host "Downloading Ruby-GNOME source $rubyGnomeTag from $sourceUrl"
+            Invoke-WebRequest -Uri $sourceUrl -OutFile $sourceZip -UseBasicParsing
+            if (!(Test-Path $sourceZip)) {
+              Write-Error "MSYS2 smoke failed: Ruby-GNOME source archive was not created: $sourceZip"
+              exit 1
+            }
+
+            if (Test-Path $sourceRoot) {
+              Remove-Item $sourceRoot -Recurse -Force
+            }
+            Expand-Archive -Path $sourceZip -DestinationPath $env:RUNNER_TEMP -Force
+            $expandedRoot = Join-Path $env:RUNNER_TEMP "ruby-gnome-$rubyGnomeTag"
+            if (!(Test-Path $expandedRoot)) {
+              Write-Error "MSYS2 smoke failed: Ruby-GNOME source did not expand to $expandedRoot."
+              exit 1
+            }
+
+            $objectSource = Join-Path $expandedRoot 'glib2\ext\glib2\rbgobj_object.c'
+            if (!(Test-Path $objectSource)) {
+              Write-Error "MSYS2 smoke failed: glib2 object source not found at $objectSource."
+              exit 1
+            }
+
+            $old = '    rb_funcall(GOBJ2RVAL(object), ruby_setter, 1, GVAL2RVAL(value));'
+            $new = @(
+              '    {',
+              '        VALUE rb_object = GOBJ2RVAL(object);',
+              '        VALUE rb_value = GVAL2RVAL(value);',
+              '        rb_funcall(rb_object, ruby_setter, 1, rb_value);',
+              '        if (G_TYPE_IS_OBJECT(G_PARAM_SPEC_VALUE_TYPE(pspec))) {',
+              '            G_CHILD_SET(rb_object, rb_intern(g_param_spec_get_name(pspec)), rb_value);',
+              '        }',
+              '    }'
+            ) -join "`n"
+            $content = Get-Content $objectSource -Raw
+            if (-not $content.Contains($old)) {
+              Write-Error "MSYS2 smoke failed: glib2 diagnostic patch anchor was not found in $objectSource."
+              exit 1
+            }
+            Set-Content -Path $objectSource -Value $content.Replace($old, $new.TrimEnd()) -Encoding ascii
+            Write-Host "Applied glib2 diagnostic GC repair patch to $objectSource"
+
+            Push-Location (Join-Path $expandedRoot 'glib2')
+            & $rubyExe -S gem build glib2.gemspec
+            if ($LASTEXITCODE -ne 0) {
+              Pop-Location
+              Write-Error "MSYS2 smoke failed: patched glib2 gem could not be built."
+              exit $LASTEXITCODE
+            }
+            $patchedGlib2Gem = Join-Path (Get-Location) "glib2-$rubyGnomeTag.gem"
+            if (!(Test-Path $patchedGlib2Gem)) {
+              Pop-Location
+              Write-Error "MSYS2 smoke failed: patched glib2 gem was not created: $patchedGlib2Gem"
+              exit 1
+            }
+            & $rubyExe -S gem install $patchedGlib2Gem --local --no-document
+            if ($LASTEXITCODE -ne 0) {
+              Pop-Location
+              Write-Error "MSYS2 smoke failed: patched glib2 gem could not be installed."
+              exit $LASTEXITCODE
+            }
+            Pop-Location
+            Write-Host "::endgroup::"
           }
 
           & $rubyExe -S gem install gtk3 --version "$env:GTK3_GEM_VERSION" --no-document
