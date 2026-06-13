@@ -417,11 +417,13 @@ jobs:
           $giGem = & $rubyExe -e "require 'rubygems'; puts Gem::Specification.find_by_name('gobject-introspection').full_gem_path"
           $glibSo = Join-Path $glibGem 'lib\glib2.so'
           $giSo = Join-Path $giGem 'lib\gobject_introspection.so'
+          $rubyDll = Get-ChildItem (Join-Path $rubyRoot 'bin') -Filter 'ruby*.dll' -ErrorAction SilentlyContinue | Select-Object -First 1
 
           Write-Host "::group::Ruby native extension files"
           foreach ($path in @($glibSo, $giSo)) {
             if (Test-Path $path) {
-              Get-Item $path | Select-Object FullName, Length, LastWriteTime
+              $item = Get-Item $path
+              Write-Host "FOUND $($item.FullName) length=$($item.Length) modified=$($item.LastWriteTime)"
             } else {
               Write-Host "MISSING $path"
             }
@@ -429,9 +431,13 @@ jobs:
           Write-Host "::endgroup::"
 
           Write-Host "::group::DLL resolution candidates"
-          Get-ChildItem (Join-Path $rubyRoot 'bin') -Filter '*.dll' -ErrorAction SilentlyContinue | Select-Object FullName, Length, LastWriteTime
+          if ($rubyDll) {
+            Write-Host "Ruby DLL=$($rubyDll.FullName) length=$($rubyDll.Length) modified=$($rubyDll.LastWriteTime)"
+          } else {
+            Write-Host "Ruby DLL=MISSING under $(Join-Path $rubyRoot 'bin')"
+          }
+
           foreach ($dll in @(
-            'ruby*.dll',
             'libglib-2.0-0.dll',
             'libgobject-2.0-0.dll',
             'libgio-2.0-0.dll',
@@ -442,8 +448,12 @@ jobs:
             'zlib1.dll'
           )) {
             Write-Host "where $dll"
-            where.exe $dll 2>$null
-            if ($LASTEXITCODE -ne 0) {
+            $whereOut = Join-Path $env:RUNNER_TEMP "where-$dll.stdout.log"
+            $whereErr = Join-Path $env:RUNNER_TEMP "where-$dll.stderr.log"
+            cmd.exe /d /c "where `"$dll`" > `"$whereOut`" 2> `"$whereErr`""
+            if ($LASTEXITCODE -eq 0 -and (Test-Path $whereOut)) {
+              Get-Content $whereOut -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  $_" }
+            } else {
               Write-Host "  no PATH match"
             }
           }
@@ -455,7 +465,6 @@ jobs:
             (Join-Path $msys 'usr\bin\objdump.exe')
           )
           $objdump = $objdumpCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
-          $rubyDll = Get-ChildItem (Join-Path $rubyRoot 'bin') -Filter 'ruby*.dll' -ErrorAction SilentlyContinue | Select-Object -First 1
           if ($objdump) {
             Write-Host "::group::Native import tables"
             Write-Host "objdump=$objdump"
