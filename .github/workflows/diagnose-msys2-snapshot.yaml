@@ -123,6 +123,7 @@ jobs:
           $filtered = $orig | Where-Object {
             $_ -and
             ($_ -notlike '*\Ruby\*\x64\msys64\*') -and
+            ($_ -notmatch '^C:\\hostedtoolcache\\windows\\Ruby(\\|$)') -and
             ($_ -ne 'C:\mingw64\bin') -and
             ($_ -notmatch '^C:\\Strawberry(\\|$)')
           }
@@ -374,7 +375,10 @@ jobs:
             Write-Error "Snapshot smoke failed: RUBY_EXE does not exist: $rubyExe"
             exit 1
           }
-          $env:Path = "$rubyRoot\bin;$msys\ucrt64\bin;$msys\usr\bin;$env:Path"
+          $pathEntries = $env:Path -split ';' | Where-Object {
+            $_ -and ($_ -notmatch '^C:\\hostedtoolcache\\windows\\Ruby(\\|$)')
+          }
+          $env:Path = (@("$rubyRoot\bin", "$msys\ucrt64\bin", "$msys\usr\bin") + $pathEntries) -join ';'
 
           Write-Host "::group::Snapshot build surface"
           Write-Host "RI_DEVKIT=$env:RI_DEVKIT"
@@ -408,6 +412,100 @@ jobs:
           Write-Host "::group::Ruby helper gem versions"
           & $rubyExe -S gem list pkg-config native-package-installer glib2 gio2 gobject-introspection gtk3
           Write-Host "::endgroup::"
+
+          $glibGem = & $rubyExe -e "require 'rubygems'; puts Gem::Specification.find_by_name('glib2').full_gem_path"
+          $giGem = & $rubyExe -e "require 'rubygems'; puts Gem::Specification.find_by_name('gobject-introspection').full_gem_path"
+          $glibSo = Join-Path $glibGem 'lib\glib2.so'
+          $giSo = Join-Path $giGem 'lib\gobject_introspection.so'
+          $rubyDll = Get-ChildItem (Join-Path $rubyRoot 'bin') -Filter 'ruby*.dll' -ErrorAction SilentlyContinue | Select-Object -First 1
+
+          Write-Host "::group::Ruby native extension files"
+          foreach ($path in @($glibSo, $giSo)) {
+            if (Test-Path $path) {
+              $item = Get-Item $path
+              Write-Host "FOUND $($item.FullName) length=$($item.Length) modified=$($item.LastWriteTime)"
+            } else {
+              Write-Host "MISSING $path"
+            }
+          }
+          Write-Host "::endgroup::"
+
+          Write-Host "::group::DLL resolution candidates"
+          if ($rubyDll) {
+            Write-Host "Ruby DLL=$($rubyDll.FullName) length=$($rubyDll.Length) modified=$($rubyDll.LastWriteTime)"
+          } else {
+            Write-Host "Ruby DLL=MISSING under $(Join-Path $rubyRoot 'bin')"
+          }
+
+          foreach ($dll in @(
+            'libglib-2.0-0.dll',
+            'libgobject-2.0-0.dll',
+            'libgio-2.0-0.dll',
+            'libgirepository-1.0-1.dll',
+            'libffi-8.dll',
+            'libintl-8.dll',
+            'libiconv-2.dll',
+            'zlib1.dll'
+          )) {
+            Write-Host "where $dll"
+            $whereOut = Join-Path $env:RUNNER_TEMP "where-$dll.stdout.log"
+            $whereErr = Join-Path $env:RUNNER_TEMP "where-$dll.stderr.log"
+            cmd.exe /d /c "where `"$dll`" > `"$whereOut`" 2> `"$whereErr`""
+            if ($LASTEXITCODE -eq 0 -and (Test-Path $whereOut)) {
+              Get-Content $whereOut -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "  $_" }
+            } else {
+              Write-Host "  no PATH match"
+            }
+          }
+          Write-Host "::endgroup::"
+
+          $objdumpCandidates = @(
+            (Join-Path $msys 'ucrt64\bin\objdump.exe'),
+            (Join-Path $msys 'ucrt64\bin\x86_64-w64-mingw32-objdump.exe'),
+            (Join-Path $msys 'usr\bin\objdump.exe')
+          )
+          $objdump = $objdumpCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if ($objdump) {
+            Write-Host "::group::Native import tables"
+            Write-Host "objdump=$objdump"
+            $binaries = @(
+              $glibSo,
+              $giSo,
+              (Join-Path $msys 'ucrt64\bin\libglib-2.0-0.dll'),
+              (Join-Path $msys 'ucrt64\bin\libgobject-2.0-0.dll'),
+              (Join-Path $msys 'ucrt64\bin\libgirepository-1.0-1.dll')
+            )
+            if ($rubyDll) {
+              $binaries += $rubyDll.FullName
+            }
+
+            foreach ($binary in $binaries) {
+              if (!(Test-Path $binary)) {
+                Write-Host "MISSING $binary"
+                continue
+              }
+
+              Write-Host "--- $binary"
+              & $objdump -p $binary | Select-String -Pattern 'DLL Name|vma:|Hint/Ord|^\s+[0-9a-fA-F]+\s+' | Select-Object -First 240
+            }
+            Write-Host "::endgroup::"
+          } else {
+            Write-Host "::warning::objdump.exe was not found in the snapshot; native import table tracing was skipped."
+          }
+
+          $ntldd = Get-Command ntldd.exe -ErrorAction SilentlyContinue
+          if ($ntldd) {
+            Write-Host "::group::ntldd native dependency resolution"
+            foreach ($binary in @($glibSo, $giSo)) {
+              if (Test-Path $binary) {
+                Write-Host "--- $binary"
+                & $ntldd.Source -R $binary
+              }
+            }
+            Write-Host "::endgroup::"
+          } else {
+            Write-Host "::notice::ntldd.exe was not available in the snapshot PATH."
+          }
 
           & $rubyExe -e "require 'sqlite3'; require 'gtk3'; Gtk.init; puts 'snapshot GTK smoke OK'"
           if ($LASTEXITCODE -ne 0) {
