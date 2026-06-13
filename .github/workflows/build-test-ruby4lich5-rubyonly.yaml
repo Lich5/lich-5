@@ -521,8 +521,24 @@ jobs:
             exit 1
           }
 
+          $rubyExe = (& "$env:SystemRoot\System32\where.exe" ruby 2>$null | Select-Object -First 1)
+          if (-not $rubyExe) {
+            Write-Error "Ruby-only installer preparation failed: ruby.exe not found on PATH."
+            exit 1
+          }
+          $rubyRoot = Split-Path (Split-Path $rubyExe -Parent) -Parent
+          if (!(Test-Path (Join-Path $rubyRoot 'bin\ruby.exe'))) {
+            Write-Error "Ruby-only installer preparation failed: detected Ruby root '$rubyRoot' does not contain bin\ruby.exe."
+            exit 1
+          }
+          Write-Host "Packaging active Ruby root: $rubyRoot"
+
           $lines = Get-Content $source
           $out = foreach ($line in $lines) {
+            if ($line -match '^\s*Source:\s*"C:\\hostedtoolcache\\windows\\Ruby\\\{#RubyVersion\}\\x64\\\*";') {
+              "Source: `"$rubyRoot\*`"; DestDir: `"{app}\{#RubyVersion}`";                 Components: rubygem; Flags: ignoreversion createallsubdirs recursesubdirs; Excludes: `"msys64`""
+              continue
+            }
             if ($line -match '^\s*Name:\s*"full";') { continue }
             if ($line -match '^\s*Name:\s*"lichonly";') { continue }
             if ($line -match '^\s*Name:\s*"lich";') { continue }
